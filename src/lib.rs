@@ -43,19 +43,15 @@ impl GitHub {
 
     pub async fn for_issues_with_timeline(
         &self,
-        page_size: u16,
+        mut variables: serde_json::Value,
         pages: usize,
         mut issue_handler: impl FnMut(&IssueWithTimelineItems),
         mut after_page_handler: impl FnMut(),
     ) {
-        let mut variables = serde_json::json!({
-            "page_size": page_size,
-        });
-
         let mut pages_left = pages;
         loop {
             let mut issues: Issues = self
-                .query(queries::ISSUES_QUERY, variables.clone())
+                .query(queries::ISSUES_WITH_TIMELINE_QUERY, variables.clone())
                 .await
                 .unwrap()
                 .get(&["repository", "issues"])

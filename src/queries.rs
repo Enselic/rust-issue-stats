@@ -1,12 +1,12 @@
 // TODO: Parameterize more
-pub const ISSUES_QUERY: &str = r#" query ($page_size: Int!, $before: String) {
+pub const ISSUES_WITH_TIMELINE_QUERY: &str = r#" query ($page_size: Int!, $before: String, $states: [IssueState!], $filterBy: IssueFilters, $timeline_page_size: Int = 200) {
     repository(owner: "rust-lang", name: "rust") {
-        issues(last: $page_size, before: $before) {
+        issues(last: $page_size, before: $before, states: $states, filterBy: $filterBy) {
             nodes {
                 number
                 title
                 createdAt
-                timelineItems(itemTypes: [LABELED_EVENT, UNLABELED_EVENT], first: 200) {
+                timelineItems(first: $timeline_page_size, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {
                     nodes {
                         ... on LabeledEvent {
                             __typename
