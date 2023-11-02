@@ -3,6 +3,7 @@ pub const ISSUES_WITH_TIMELINE_QUERY: &str = r#" query ($page_size: Int!, $befor
     repository(owner: "rust-lang", name: "rust") {
         issues(last: $page_size, before: $before, states: $states, filterBy: $filterBy) {
             nodes {
+                url
                 number
                 title
                 createdAt

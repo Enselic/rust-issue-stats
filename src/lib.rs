@@ -121,6 +121,7 @@ impl PagedIssueWithTimelineItems {
         }
 
         Ok(IssueWithTimelineItems {
+            url: self.url.clone(),
             number: self.number,
             title: self.title.clone(),
             created_at: self.created_at,

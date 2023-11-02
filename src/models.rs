@@ -69,6 +69,7 @@ pub struct PreviousPageInfo {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PagedIssueWithTimelineItems {
+    pub url: String,
     pub number: u32,
     pub title: String,
     #[serde(rename = "createdAt", deserialize_with = "from_rfc3339_str")]
@@ -77,6 +78,7 @@ pub struct PagedIssueWithTimelineItems {
 }
 
 pub struct IssueWithTimelineItems {
+    pub url: String,
     pub number: u32,
     pub title: String,
     pub created_at: DateTime<FixedOffset>,
