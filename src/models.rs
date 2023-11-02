@@ -44,6 +44,10 @@ pub enum TimelineItem {
         #[serde(rename = "createdAt", deserialize_with = "from_rfc3339_str")]
         created_at: DateTime<FixedOffset>,
     },
+    IssueComment {
+        #[serde(rename = "createdAt", deserialize_with = "from_rfc3339_str")]
+        created_at: DateTime<FixedOffset>,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize)]
@@ -69,6 +73,7 @@ pub struct PreviousPageInfo {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PagedIssueWithTimelineItems {
+    pub url: String,
     pub number: u32,
     pub title: String,
     #[serde(rename = "createdAt", deserialize_with = "from_rfc3339_str")]
@@ -77,6 +82,7 @@ pub struct PagedIssueWithTimelineItems {
 }
 
 pub struct IssueWithTimelineItems {
+    pub url: String,
     pub number: u32,
     pub title: String,
     pub created_at: DateTime<FixedOffset>,
@@ -148,6 +154,9 @@ impl Display for TimelineItem {
             }
             TimelineItem::ClosedEvent { created_at } => {
                 write!(f, "<CLOSED> {}", created_at.format("%Y-%m-%d"))
+            }
+            TimelineItem::IssueComment { created_at } => {
+                write!(f, "<COMMENT> {}", created_at.format("%Y-%m-%d"))
             }
         }
     }
