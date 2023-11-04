@@ -6,6 +6,11 @@ pub const ISSUES_WITH_TIMELINE_QUERY: &str = r#" query ($page_size: Int!, $befor
                 number
                 title
                 createdAt
+                labels(first: 100) {
+                    nodes {
+                        name
+                    }
+                }
                 timelineItems(first: $timeline_page_size, itemTypes: $item_types) {
                     nodes {
                         ... on LabeledEvent {

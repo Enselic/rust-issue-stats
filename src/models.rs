@@ -4,6 +4,8 @@ use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt::{Display, Formatter};
 
+pub const E_NEEDS_MCVE: &str = "E-needs-mcve";
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct QueryResponse {
     pub data: Option<serde_json::Value>,
@@ -15,6 +17,12 @@ pub struct QueryResponse {
 pub struct Issues {
     pub nodes: Vec<PagedIssueWithTimelineItems>,
     pub page_info: PreviousPageInfo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Labels {
+    pub nodes: Vec<Label>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,13 +39,11 @@ pub enum TimelineItem {
     LabeledEvent {
         #[serde(rename = "createdAt", deserialize_with = "from_rfc3339_str")]
         created_at: DateTime<FixedOffset>,
-        #[serde(deserialize_with = "from_label")]
         label: Label,
     },
     UnlabeledEvent {
         #[serde(rename = "createdAt", deserialize_with = "from_rfc3339_str")]
         created_at: DateTime<FixedOffset>,
-        #[serde(deserialize_with = "from_label")]
         label: Label,
     },
     ClosedEvent {
@@ -50,10 +56,9 @@ pub enum TimelineItem {
     },
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
-pub enum Label {
-    NeedsMcve,
-    Other(String),
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct Label {
+    pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +81,7 @@ pub struct PagedIssueWithTimelineItems {
     pub url: String,
     pub number: u32,
     pub title: String,
+    pub labels: Labels,
     #[serde(rename = "createdAt", deserialize_with = "from_rfc3339_str")]
     pub created_at: DateTime<FixedOffset>,
     pub timeline_items: TimelineItems,
@@ -85,6 +91,7 @@ pub struct IssueWithTimelineItems {
     pub url: String,
     pub number: u32,
     pub title: String,
+    pub labels: Labels,
     pub created_at: DateTime<FixedOffset>,
     pub timeline_items: Vec<TimelineItem>,
 }
@@ -95,21 +102,6 @@ where
 {
     let s: &str = Deserialize::deserialize(deserializer)?;
     DateTime::parse_from_rfc3339(s).map_err(D::Error::custom)
-}
-
-fn from_label<'de, D>(deserializer: D) -> Result<Label, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let v: serde_json::Value = Deserialize::deserialize(deserializer)?;
-    v.as_object()
-        .and_then(|o| o.get("name"))
-        .and_then(|v| v.as_str())
-        .map(|s| match s {
-            "E-needs-mcve" => Label::NeedsMcve,
-            _ => Label::Other(s.to_string()),
-        })
-        .ok_or_else(|| D::Error::custom("invalid label: {v:?}"))
 }
 
 impl QueryResponse {
@@ -136,10 +128,7 @@ impl QueryResponse {
 
 impl Display for Label {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Label::NeedsMcve => "E-needs-mcve",
-            Label::Other(label) => label,
-        })
+        f.write_str(&self.name)
     }
 }
 

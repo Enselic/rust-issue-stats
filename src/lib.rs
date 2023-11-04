@@ -124,6 +124,7 @@ impl PagedIssueWithTimelineItems {
             url: self.url.clone(),
             number: self.number,
             title: self.title.clone(),
+            labels: self.labels.clone(),
             created_at: self.created_at,
             timeline_items: self.timeline_items.nodes.clone(),
         })
