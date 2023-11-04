@@ -1,6 +1,6 @@
-pub const ISSUES_WITH_TIMELINE_QUERY: &str = r#" query ($page_size: Int!, $before: String, $states: [IssueState!], $filterBy: IssueFilters, $timeline_page_size: Int = 200, $item_types: [IssueTimelineItemsItemType!]) {
+pub const ISSUES_WITH_TIMELINE_QUERY: &str = r#" query ($page_size: Int!, $before: String, $states: [IssueState!], $filterBy: IssueFilters, $timeline_page_size: Int = 200, $timelineItemTypes: [IssueTimelineItemsItemType!]!) {
     repository(owner: "rust-lang", name: "rust") {
-        issues(last: $page_size, before: $before, states: $states, filterBy: $filterBy) {
+        issues(last: $page_size, before: $before, states: $states, filterBy: $filterBy, orderBy: { field: CREATED_AT, direction: ASC }) {
             nodes {
                 url
                 number
@@ -11,7 +11,7 @@ pub const ISSUES_WITH_TIMELINE_QUERY: &str = r#" query ($page_size: Int!, $befor
                         name
                     }
                 }
-                timelineItems(first: $timeline_page_size, itemTypes: $item_types) {
+                timelineItems(first: $timeline_page_size, itemTypes: $timelineItemTypes) {
                     nodes {
                         ... on LabeledEvent {
                             __typename
@@ -29,6 +29,13 @@ pub const ISSUES_WITH_TIMELINE_QUERY: &str = r#" query ($page_size: Int!, $befor
                         }
                         ... on ClosedEvent {
                             __typename
+                            createdAt
+                        }
+                        ... on ReopenedEvent {
+                            __typename
+                            actor {
+                                login
+                            }
                             createdAt
                         }
                         ... on IssueComment {
@@ -54,13 +61,18 @@ pub const ISSUES_WITH_TIMELINE_QUERY: &str = r#" query ($page_size: Int!, $befor
     }
 } "#;
 
-pub const TIMELINE_QUERY: &str = r#" query ($number: Int!, $after: String!) {
+pub const TIMELINE_QUERY: &str = r#" query ($number: Int!, $after: String!, $timeline_page_size: Int = 200, $timelineItemTypes: [IssueTimelineItemsItemType!]!) {
     repository(owner: "rust-lang", name: "rust") {
         issue(number: $number) {
             number
             title
             createdAt
-            timelineItems(itemTypes: [LABELED_EVENT, UNLABELED_EVENT, CLOSED_EVENT], first: 2, after: $after) {
+            labels(first: 100) {
+                nodes {
+                    name
+                }
+            }
+            timelineItems(itemTypes: $timelineItemTypes, first: $timeline_page_size, after: $after) {
                 nodes {
                     ... on LabeledEvent {
                         __typename

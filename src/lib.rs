@@ -1,9 +1,10 @@
-use tracing::*;
+use tracing::{subscriber::SetGlobalDefaultError, *};
 
 mod models;
 mod queries;
 
 pub use models::*;
+use tracing_subscriber::FmtSubscriber;
 
 /// GitHub GraphQL API wrapper.
 pub struct GitHub {
@@ -56,6 +57,7 @@ impl GitHub {
                 .unwrap()
                 .get(&["repository", "issues"])
                 .unwrap();
+
             pages_left -= 1;
 
             for paged_issue in &mut issues.nodes {
@@ -129,4 +131,13 @@ impl PagedIssueWithTimelineItems {
             timeline_items: self.timeline_items.nodes.clone(),
         })
     }
+}
+
+pub fn log_init() -> Result<(), SetGlobalDefaultError> {
+    // Enable like this: `RUST_LOG=rust_issue_stats=warn cargo run`
+    tracing::subscriber::set_global_default(
+        FmtSubscriber::builder()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .finish(),
+    )
 }

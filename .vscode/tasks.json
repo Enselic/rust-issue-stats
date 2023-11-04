@@ -2,17 +2,13 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"type": "cargo",
-			"command": "check",
-			"args": [
-				"--all-targets",
-				"--all-features"
-			],
+			"type": "shell",
+			"command": "./scripts/run-ci-locally.sh",
 			"problemMatcher": [
 				"$rustc"
 			],
 			"group": "build",
-			"label": "rust: cargo check"
+			"label": "./scripts/run-ci-locally.sh"
 		}
 	]
 }

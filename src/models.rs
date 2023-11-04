@@ -50,6 +50,11 @@ pub enum TimelineItem {
         #[serde(rename = "createdAt", deserialize_with = "from_rfc3339_str")]
         created_at: DateTime<FixedOffset>,
     },
+    ReopenedEvent {
+        #[serde(rename = "createdAt", deserialize_with = "from_rfc3339_str")]
+        created_at: DateTime<FixedOffset>,
+        actor: Actor,
+    },
     IssueComment {
         #[serde(rename = "createdAt", deserialize_with = "from_rfc3339_str")]
         created_at: DateTime<FixedOffset>,
@@ -59,6 +64,11 @@ pub enum TimelineItem {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Label {
     pub name: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct Actor {
+    pub login: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,9 +120,8 @@ impl QueryResponse {
         path: &[&str],
     ) -> Result<T, <serde_json::Value as Deserializer<'de>>::Error> {
         if let Some(errors) = &self.errors {
-            <serde_json::Value as Deserializer<'de>>::Error::custom(format!(
-                "Got errors: {:#?}",
-                errors
+            return Err(<serde_json::Value as Deserializer<'de>>::Error::custom(
+                format!("Got errors: {:#?}", errors),
             ));
         }
 
@@ -143,6 +152,14 @@ impl Display for TimelineItem {
             }
             TimelineItem::ClosedEvent { created_at } => {
                 write!(f, "<CLOSED> {}", created_at.format("%Y-%m-%d"))
+            }
+            TimelineItem::ReopenedEvent { created_at, actor } => {
+                write!(
+                    f,
+                    "<REOPENED by {}> {}",
+                    actor.login,
+                    created_at.format("%Y-%m-%d")
+                )
             }
             TimelineItem::IssueComment { created_at } => {
                 write!(f, "<COMMENT> {}", created_at.format("%Y-%m-%d"))

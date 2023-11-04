@@ -12,7 +12,7 @@ cargo fmt -- --check
 
 RUSTDOCFLAGS='--deny warnings' cargo doc --locked --no-deps --document-private-items
 
-cargo clippy
+cargo clippy --all-targets --all-features -- -D clippy::all
 
 cargo build --locked
 
