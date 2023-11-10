@@ -1,9 +1,5 @@
 use tracing::{subscriber::SetGlobalDefaultError, *};
 
-mod models;
-mod queries;
-
-pub use models::*;
 use tracing_subscriber::FmtSubscriber;
 
 /// GitHub GraphQL API wrapper.

@@ -1,0 +1,62 @@
+query IssuesQuery($pageSize: Int!, $before: String, $states: [IssueState!], $filterBy: IssueFilters, $timelinePageSize: Int = 200, $timelineItemTypes: [IssueTimelineItemsItemType!]!) {
+    repository(owner: "rust-lang", name: "rust") {
+        issues(last: $pageSize, before: $before, states: $states, filterBy: $filterBy, orderBy: { field: CREATED_AT, direction: ASC }) {
+            nodes {
+                url
+                number
+                title
+                createdAt
+                labels(first: 100) {
+                    nodes {
+                        name
+                    }
+                }
+                timelineItems(first: $timelinePageSize, itemTypes: $timelineItemTypes) {
+                    nodes {
+                        ... on LabeledEvent {
+                            __typename
+                            label {
+                                name
+                            }
+                            createdAt
+                        }
+                        ... on UnlabeledEvent {
+                            __typename
+                            label {
+                                name
+                            }
+                            createdAt
+                        }
+                        ... on ClosedEvent {
+                            __typename
+                            createdAt
+                        }
+                        ... on ReopenedEvent {
+                            __typename
+                            actor {
+                                login
+                            }
+                            createdAt
+                        }
+                        ... on IssueComment {
+                            __typename
+                            createdAt
+                        }
+                    }
+                    pageInfo {
+                        endCursor
+                        hasNextPage
+                        hasPreviousPage
+                        startCursor
+                    }
+                }
+            }
+            pageInfo {
+                endCursor
+                hasNextPage
+                hasPreviousPage
+                startCursor
+            }
+        }
+    }
+}
