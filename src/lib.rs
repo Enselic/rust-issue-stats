@@ -1,4 +1,4 @@
-use tracing::{subscriber::SetGlobalDefaultError, *};
+use tracing::subscriber::SetGlobalDefaultError;
 
 use tracing_subscriber::FmtSubscriber;
 

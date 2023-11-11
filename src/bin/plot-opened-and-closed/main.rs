@@ -8,7 +8,7 @@ type DateTime = chrono::DateTime<chrono::Utc>;
     schema_path = "schemas/github_schema.graphql",
     query_path = "src/bin/plot-opened-and-closed/OpenedAndClosedIssues.graphql",
     variables_derives = "Clone, Debug",
-    response_derives = "Clone, Debug"
+    response_derives = "Clone, Debug, Serialize"
 )]
 pub struct OpenedAndClosedIssues;
 
@@ -41,12 +41,12 @@ async fn main() -> anyhow::Result<()> {
         after: None,
     };
 
-    let mut pages_left = args.pages;
+    let mut page = 0;
     loop {
-        if pages_left == 0 {
+        page += 1;
+        if page > args.pages {
             break;
         }
-        pages_left -= 1;
 
         let response: graphql_client::Response<ResponseData> = github
             .octocrab
@@ -56,8 +56,12 @@ async fn main() -> anyhow::Result<()> {
                 ),
             )
             .await?;
-
         eprintln!("errors: {:#?}", response.errors);
+
+        let mut persited_data_path = args.persisted_data_dir.clone();
+        persited_data_path.push(format!("page-{}_page-size-{}", page, args.page_size));
+        println!("Writing response to disk. path: {}", persited_data_path.display());
+        serde_json::to_writer(std::fs::File::create(persited_data_path)?, &response)?;
 
         let issues = &response
             .data
