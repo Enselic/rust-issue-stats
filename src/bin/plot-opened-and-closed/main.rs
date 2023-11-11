@@ -2,10 +2,10 @@ use std::path::PathBuf;
 
 type URI = String;
 
-#[derive(GraphQLQuery)]
+#[derive(graphql_client::GraphQLQuery)]
 #[graphql(
     schema_path = "schemas/github_schema.graphql",
-    query_path = "issues_query.graphql",
+    query_path = "src/bin/plot-opened-and-closed/opened-and-closed.graphql",
     variables_derives = "Clone, Debug, Serialize",
     response_derives = "Clone, Debug, Serialize"
 )]
@@ -27,7 +27,7 @@ pub struct Args {
 async fn main() -> anyhow::Result<()> {
     log_init()?;
 
-    let args = Args::parse();
+    let args = <Args as clap::Parser>::parse();
 
     let github = GitHub::new();
 
