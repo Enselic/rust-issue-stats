@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
         after: None,
     };
 
-    let pages_left = args.pages;
+    let mut pages_left = args.pages;
     loop {
         if pages_left == 0 {
             break;
@@ -67,27 +67,20 @@ async fn main() -> anyhow::Result<()> {
             .issues;
         println!("{issues:?}");
 
-        if issues.nodes.is_empty() {
-            break;
-        }
-
-        if issues.nodes.is_empty() {
-            break;
-        }
-
-        if !update_page_info(&mut variables, issues) {
-            break;
-        }
-
-        match response {
-            Ok(response) => {}
-            Err(error) => {
-                println!("{error:#?}");
-                break;
-            }
-        }
-
-        page += 1;
+        // if let Some(page_info) = &issues.page_info {
+        //     variables.after = page_info.end_cursor.clone();
+        // }
+        // if issues.nodes.is_empty() {
+        //     break;
+        // }
+// 
+        // if issues.nodes.is_empty() {
+        //     break;
+        // }
+// 
+        // if !update_page_info(&mut variables, issues) {
+        //     break;
+        // }
     }
 
 

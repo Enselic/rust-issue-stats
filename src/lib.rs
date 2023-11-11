@@ -13,12 +13,25 @@ impl Default for GitHub {
     }
 }
 
+fn github_api_token() -> String {
+    let output = std::process::Command::new("git")
+        .arg("config")
+        .arg("--get")
+        .arg("github.oauth-token")
+        .output()
+        .expect("Run: git config github.oauth-token <your-token>");
+
+    String::from_utf8(output.stdout).unwrap().trim().to_string()
+}
+
 impl GitHub {
     pub fn new() -> Self {
-        Self { octocrab: octocrab::Octocrab::builder()
-            .personal_token(std::env::var("GITHUB_TOKEN").expect("go to https://github.com/settings/tokens?type=beta and generate a token that can read public repos"))
-            .build()
-            .unwrap() }
+        Self {
+            octocrab: octocrab::Octocrab::builder()
+                .personal_token(github_api_token())
+                .build()
+                .unwrap(),
+        }
     }
 }
 
@@ -32,12 +45,12 @@ impl GitHub {
 //             "query": query,
 //             "variables": variables,
 //         });
-// 
+//
 //         warn!("making a GitHub API request (affecting rate limiting)");
 //         trace!("Query: {}", &json);
 //         self.octocrab.graphql(&json).await
 //     }
-// 
+//
 //     pub async fn for_issues_with_timeline(
 //         &self,
 //         mut variables: serde_json::Value,
@@ -53,26 +66,26 @@ impl GitHub {
 //                 .unwrap()
 //                 .get(&["repository", "issues"])
 //                 .unwrap();
-// 
+//
 //             pages_left -= 1;
-// 
+//
 //             for paged_issue in &mut issues.nodes {
 //                 let issue = paged_issue.collect_pages(self).await.unwrap();
-// 
+//
 //                 issue_handler(&issue);
 //             }
-// 
+//
 //             after_page_handler();
-// 
+//
 //             if pages_left == 0 {
 //                 break;
 //             }
-// 
+//
 //             if !issues.page_info.has_previous_page {
 //                 debug!("No more pages left. Maybe unexpected. Raw data: {issues:#?}");
 //                 break;
 //             }
-// 
+//
 //             variables.as_object_mut().unwrap().insert(
 //                 "before".to_owned(),
 //                 serde_json::json!(issues
@@ -83,19 +96,19 @@ impl GitHub {
 //         }
 //     }
 // }
-// 
+//
 // impl PagedIssueWithTimelineItems {
 //     pub async fn collect_pages(
 //         &mut self,
 //         github: &GitHub,
 //     ) -> octocrab::Result<IssueWithTimelineItems> {
 //         let mut page_info = self.timeline_items.page_info.clone();
-// 
+//
 //         loop {
 //             if !page_info.has_next_page {
 //                 break;
 //             }
-// 
+//
 //             let issue_data: PagedIssueWithTimelineItems = github
 //                 .query(
 //                     queries::TIMELINE_QUERY,
@@ -107,17 +120,17 @@ impl GitHub {
 //                 .await?
 //                 .get(&["repository", "issue"])
 //                 .unwrap();
-// 
+//
 //             assert_eq!(issue_data.number, self.number);
 //             assert_eq!(issue_data.title, self.title);
-// 
+//
 //             self.timeline_items
 //                 .nodes
 //                 .extend(issue_data.timeline_items.nodes);
-// 
+//
 //             page_info = issue_data.timeline_items.page_info.clone();
 //         }
-// 
+//
 //         Ok(IssueWithTimelineItems {
 //             url: self.url.clone(),
 //             number: self.number,
