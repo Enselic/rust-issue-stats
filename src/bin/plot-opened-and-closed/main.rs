@@ -1,5 +1,5 @@
 use chrono::Utc;
-use std::{path::PathBuf, collections::HashMap};
+use std::{collections::HashMap, path::PathBuf};
 
 use tracing::*;
 
@@ -29,21 +29,26 @@ pub struct Args {
     persisted_data_dir: PathBuf,
 }
 
+#[derive(Debug)]
 struct WeekData {
     opened: u64,
     closed: u64,
     total_open: u64,
 }
 
+#[derive(Debug)]
 struct PlotData {
     origin_of_time: DateTime,
-    week_data: HashMap<u64, WeekData>
+    week_data: HashMap<i64, WeekData>,
 }
 
 impl OpenedAndClosedIssuesRepositoryIssuesNodes {
     fn closed_at(&self) -> Option<DateTime> {
         for item in self.timeline_items.nodes.as_ref().unwrap() {
-            if let Some(OpenedAndClosedIssuesRepositoryIssuesNodesTimelineItemsNodes::ClosedEvent(event)) = &item {
+            if let Some(
+                OpenedAndClosedIssuesRepositoryIssuesNodesTimelineItemsNodes::ClosedEvent(event),
+            ) = &item
+            {
                 return Some(event.created_at);
             }
         }
@@ -54,49 +59,41 @@ impl OpenedAndClosedIssuesRepositoryIssuesNodes {
 impl PlotData {
     fn new() -> Self {
         Self {
-            origin_of_time: chrono::DateTime::parse_from_rfc3339("2010-06-21T00:00:00Z").unwrap().with_timezone(&Utc),
+            origin_of_time: chrono::DateTime::parse_from_rfc3339("2010-06-21T00:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
             week_data: HashMap::new(),
         }
     }
 
-    fn analyze_issues(&mut self, issues: &[OpenedAndClosedIssuesRepositoryIssuesNodes]) {
+    fn analyze_issues(&mut self, issues: &[Option<OpenedAndClosedIssuesRepositoryIssuesNodes>]) {
         for issue in issues {
-            let opened_week = issue.created_at - self.origin_of_time;
-            let closed_week = issue.closed_at - self.origin_of_time;
+            let issue = issue.as_ref().unwrap();
+            let opened_week = (issue.created_at - self.origin_of_time).num_days() / 7;
+            let closed_week = issue
+                .closed_at()
+                .map(|date| (date - self.origin_of_time).num_days() / 7);
 
-            let opened_week = 
-            let closed = issue.closed_at;
-            let total_open = issue.closed_at;
+            self.week_data
+                .entry(opened_week)
+                .or_insert(WeekData {
+                    opened: 0,
+                    closed: 0,
+                    total_open: 0,
+                })
+                .opened += 1;
 
-            let opened_week = opened.week();
-            let closed_week = closed.week();
-            let total_open_week = total_open.week();
-
-            self.add(opened_week, closed_week, total_open_week, opened_week);
+            if let Some(closed_week) = closed_week {
+                self.week_data
+                    .entry(closed_week)
+                    .or_insert(WeekData {
+                        opened: 0,
+                        closed: 0,
+                        total_open: 0,
+                    })
+                    .closed += 1;
+            }
         }
-        for issue in &issues.nodes {
-            let opened = issue.created_at;
-            let closed = issue.closed_at;
-            let total_open = issue.closed_at;
-
-            let opened_week = opened.week();
-            let closed_week = closed.week();
-            let total_open_week = total_open.week();
-
-            self.add(opened_week, closed_week, total_open_week, opened_week);
-        }
-    }
-
-    fn add(&mut self, opened: u64, closed: u64, total_open: u64, week: u64) {
-        let week_data = self.week_data.entry(week).or_insert(WeekData {
-            opened: 0,
-            closed: 0,
-            total_open: 0,
-        });
-
-        week_data.opened += opened;
-        week_data.closed += closed;
-        week_data.total_open += total_open;
     }
 }
 
@@ -115,6 +112,7 @@ async fn main() -> anyhow::Result<()> {
         after: None,
     };
 
+    let mut data = PlotData::new();
 
     let mut page = 0;
     loop {
@@ -165,12 +163,14 @@ async fn main() -> anyhow::Result<()> {
             .issues;
 
         //println!("{issues:?}");
-        let nodes: () = &issues.nodes.unwrap();
+        data.analyze_issues(issues.nodes.as_ref().unwrap());
 
         if issues.page_info.has_next_page {
             variables.after = issues.page_info.end_cursor.clone();
         }
     }
+
+    println!("data: {:#?}", &data);
 
     Ok(())
 }
