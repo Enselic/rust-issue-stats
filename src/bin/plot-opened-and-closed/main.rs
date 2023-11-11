@@ -78,7 +78,7 @@ impl PlotData {
                 self.week_data
                     .resize_with(opened_week + 1, || WeekData::default());
             }
-            self.week_data.get_mut(opened_week).unwrap().total_open += 1;
+            self.week_data.get_mut(opened_week).unwrap().opened += 1;
 
             if let Some(closed_week) = closed_week {
                 if self.week_data.len() <= closed_week {
@@ -161,11 +161,17 @@ async fn main() -> anyhow::Result<()> {
 
         if issues.page_info.has_next_page {
             variables.after = issues.page_info.end_cursor.clone();
+        } else {
+            break;
         }
     }
 
+    let mut total_open = 0;
+    let mut total = 0;
     for (idx, week) in data.week_data.iter().enumerate() {
-        println!("{}\t{}\t{}", idx, week.opened, week.closed);
+        total_open += week.opened as i64 - week.closed as i64;
+        total += week.opened as i64;
+        println!("{}\t{}\t{}\t{}\t{}", idx, week.opened, week.closed, total_open, total);
     }
 
     Ok(())
