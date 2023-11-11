@@ -41,6 +41,8 @@ async fn main() -> anyhow::Result<()> {
         after: None,
     };
 
+    std::fs::create_dir_all(args.persisted_data_dir.clone())?;
+
     let mut page = 0;
     loop {
         page += 1;
@@ -60,7 +62,10 @@ async fn main() -> anyhow::Result<()> {
 
         let mut persited_data_path = args.persisted_data_dir.clone();
         persited_data_path.push(format!("page-{}_page-size-{}", page, args.page_size));
-        println!("Writing response to disk. path: {}", persited_data_path.display());
+        println!(
+            "Writing response to disk. path: {}",
+            persited_data_path.display()
+        );
         serde_json::to_writer(std::fs::File::create(persited_data_path)?, &response)?;
 
         let issues = &response
