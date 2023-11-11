@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
         repository_owner: "rust-lang".to_owned(),
         repository_name: "rust".to_owned(),
         page_size: args.page_size,
-        after: Some("Y3Vyc29yOnYyOpK5MjAxMC0wNi0yMlQyMTowMDoxNyswMjowMM4AA305".to_owned()),
+        after: None,
     };
 
     let mut pages_left = args.pages;
