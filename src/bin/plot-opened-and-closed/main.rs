@@ -1,4 +1,3 @@
-use anyhow::Context;
 use chrono::Utc;
 use std::path::PathBuf;
 
@@ -93,7 +92,7 @@ impl PlotData {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    rust_issue_stats::log_init()?;
+    rust_issue_stats::log_init().unwrap();
 
     let args = <Args as clap::Parser>::parse();
 
@@ -118,14 +117,15 @@ async fn main() -> anyhow::Result<()> {
         let mut persited_data_path = args.persisted_data_dir.clone();
         persited_data_path.push(format!("page-size-{}", args.page_size));
         persited_data_path.push(format!("page-{}.json", page));
-        std::fs::create_dir_all(persited_data_path.parent().unwrap())?;
+        std::fs::create_dir_all(persited_data_path.parent().unwrap()).unwrap();
 
         let response: graphql_client::Response<ResponseData> = if persited_data_path.exists() {
             debug!(
                 "Reading response from disk. path: {}",
                 persited_data_path.display()
             );
-            serde_json::from_reader(std::fs::File::open(persited_data_path.clone())?)?
+            let file = std::fs::File::open(persited_data_path.clone()).unwrap();
+            serde_json::from_reader(&file).unwrap()
         } else {
             info!("Making GitHub GraphQL API query (affects rate limit)");
             let response: graphql_client::Response<ResponseData> = github
@@ -135,7 +135,8 @@ async fn main() -> anyhow::Result<()> {
                         variables.clone(),
                     ),
                 )
-                .await?;
+                .await
+                .unwrap();
 
             if let Some(errors) = response.errors {
                 eprintln!("errors: {:#?}", errors);
