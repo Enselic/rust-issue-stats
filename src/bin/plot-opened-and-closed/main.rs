@@ -1,4 +1,5 @@
 use chrono::Utc;
+use std::io::Write;
 use std::{collections::HashMap, hash::Hash, path::PathBuf};
 
 use tracing::*;
@@ -27,6 +28,12 @@ pub struct Args {
 
     #[arg(long, default_value = "target/rust-issues-stats/persisted-data-dir")]
     persisted_data_dir: PathBuf,
+
+    #[arg(long, default_value = "week.tsv")]
+    week_stats_file: PathBuf,
+
+    #[arg(long, default_value = "accumulated.tsv")]
+    accumulated_stats_file: PathBuf,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -35,15 +42,27 @@ enum Counter {
     Closed,
 }
 
-#[derive(Debug, Clone, Default)]
-struct CategoryData {
-    counters: HashMap<Counter, u64>,
+impl Default for Week {
+    fn default() -> Self {
+        Self(HashMap::from([
+            (Category::Bug, Counters::default()),
+            (Category::Enhancement, Counters::default()),
+            (Category::Other, Counters::default()),
+        ]))
+    }
 }
 
-#[derive(Debug, Default)]
-struct WeekData {
-    category_data: HashMap<Category, CategoryData>,
+#[derive(Debug)]
+struct Counters(HashMap<Counter, u64>);
+
+impl Default for Counters {
+    fn default() -> Self {
+        Self(HashMap::from([(Counter::Opened, 0), (Counter::Closed, 0)]))
+    }
 }
+
+#[derive(Debug)]
+struct Week(HashMap<Category, Counters>);
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 enum Category {
@@ -55,24 +74,24 @@ enum Category {
     Other,
 }
 
-
 #[derive(Debug)]
 struct PlotData {
     origin_of_time: DateTime,
-    week_data: Vec<WeekData>,
+    week_data: Vec<Week>,
 }
 
 impl OpenedAndClosedIssuesRepositoryIssuesNodes {
     fn category(&self) -> Category {
         let labels = self.labels.as_ref().unwrap();
-        let category_labels: Vec<_>= labels
+        let category_labels: Vec<_> = labels
             .nodes
             .as_ref()
             .unwrap()
             .iter()
             .flatten()
             .filter(|label| label.name.starts_with("C-"))
-            .map(|label|&label.name).collect();
+            .map(|label| &label.name)
+            .collect();
         Category::from_c_labels(&category_labels)
     }
 
@@ -102,7 +121,7 @@ impl PlotData {
 
     fn ensure_len(&mut self, len: usize) {
         if self.week_data.len() <= len {
-            self.week_data.resize_with(len + 1, WeekData::default);
+            self.week_data.resize_with(len + 1, Week::default);
         }
     }
 
@@ -226,27 +245,26 @@ async fn main() -> anyhow::Result<()> {
 
     let mut total_open: HashMap<Category, i64> = HashMap::new();
     let mut total = 0;
+    let mut week_stats_file = std::fs::File::create(args.week_stats_file).unwrap();
+    let mut accumulated_stats_file = std::fs::File::create(args.accumulated_stats_file).unwrap();
     for (idx, week) in data.week_data.iter().enumerate() {
-        for category in &[Category::Bug, Category::NotBug] {
+        write!(week_stats_file, "{}\t{}\t{}\t{}", idx, week).unwrap();
+
+        for category in &[Category::Bug, Category::Enhancement, Category::Other] {
             total_open
                 .entry(category.clone())
-                .and_modify(|c| *c += week.category_data.get(category).unwrap().counters[&Counter::Opened] as i64 - week.category_data.get(category).unwrap().counters[&Counter::Closed] as i64)
-                .or_insert(week.category_data.get(category).unwrap().counters[&Counter::Opened] as i64 - week.category_data.get(category).unwrap().counters[&Counter::Closed] as i64);
+                .and_modify(|c| {
+                    *c += week.category_data.get(category).unwrap().counters[&Counter::Opened]
+                        as i64
+                        - week.category_data.get(category).unwrap().counters[&Counter::Closed]
+                            as i64
+                })
+                .or_insert(
+                    week.category_data.get(category).unwrap().counters[&Counter::Opened] as i64
+                        - week.category_data.get(category).unwrap().counters[&Counter::Closed]
+                            as i64,
+                );
         }
-        let bugs_opened =
-            week.category_data.get(&Category::Bug).unwrap().counters[&Counter::Opened];
-        let bugs_closed =
-            week.category_data.get(&Category::Bug).unwrap().counters[&Counter::Closed];
-
-        let not_bugs_opened =
-            week.category_data.get(&Category::NotBug).unwrap().counters[&Counter::Opened];
-        let not_bugs_closed =
-            week.category_data.get(&Category::NotBug).unwrap().counters[&Counter::Closed];
-
-        let total_opened = bugs_opened + not_bugs_opened;
-        let total_bugs = bugs_opened - bugs_closed;
-        let 
-        let total_closed = bugs_closed + not_bugs_closed;
 
         total_open += total_opened as i64 - total_closed as i64;
         total += total_opened as i64;
