@@ -29,7 +29,7 @@ pub struct Args {
     persisted_data_dir: PathBuf,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct WeekData {
     opened: u64,
     closed: u64,
@@ -39,7 +39,7 @@ struct WeekData {
 #[derive(Debug)]
 struct PlotData {
     origin_of_time: DateTime,
-    week_data: HashMap<i64, WeekData>,
+    week_data: Vec<WeekData>,
 }
 
 impl OpenedAndClosedIssuesRepositoryIssuesNodes {
@@ -62,36 +62,30 @@ impl PlotData {
             origin_of_time: chrono::DateTime::parse_from_rfc3339("2010-06-21T00:00:00Z")
                 .unwrap()
                 .with_timezone(&Utc),
-            week_data: HashMap::new(),
+            week_data: vec![],
         }
     }
 
     fn analyze_issues(&mut self, issues: &[Option<OpenedAndClosedIssuesRepositoryIssuesNodes>]) {
         for issue in issues {
             let issue = issue.as_ref().unwrap();
-            let opened_week = (issue.created_at - self.origin_of_time).num_days() / 7;
+            let opened_week = ((issue.created_at - self.origin_of_time).num_days() / 7) as usize;
             let closed_week = issue
                 .closed_at()
-                .map(|date| (date - self.origin_of_time).num_days() / 7);
+                .map(|date| ((date - self.origin_of_time).num_days() / 7) as usize);
 
-            self.week_data
-                .entry(opened_week)
-                .or_insert(WeekData {
-                    opened: 0,
-                    closed: 0,
-                    total_open: 0,
-                })
-                .opened += 1;
+            if self.week_data.len() <= opened_week {
+                self.week_data
+                    .resize_with(opened_week + 1, || WeekData::default());
+            }
+            self.week_data.get_mut(opened_week).unwrap().total_open += 1;
 
             if let Some(closed_week) = closed_week {
-                self.week_data
-                    .entry(closed_week)
-                    .or_insert(WeekData {
-                        opened: 0,
-                        closed: 0,
-                        total_open: 0,
-                    })
-                    .closed += 1;
+                if self.week_data.len() <= closed_week {
+                    self.week_data
+                        .resize_with(closed_week + 1, || WeekData::default());
+                }
+                self.week_data.get_mut(closed_week).unwrap().closed += 1;
             }
         }
     }
@@ -170,7 +164,9 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    println!("data: {:#?}", &data);
+    for (idx, week) in data.week_data.iter().enumerate() {
+        println!("{}\t{}\t{}", idx, week.opened, week.closed);
+    }
 
     Ok(())
 }
