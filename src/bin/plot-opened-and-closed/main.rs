@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use tracing::*;
+
 type URI = String;
 type DateTime = chrono::DateTime<chrono::Utc>;
 
@@ -22,7 +24,7 @@ pub struct Args {
     #[arg(long, default_value = "2")]
     pages: usize,
 
-    #[arg(long, default_value = "persisted-data-dir")]
+    #[arg(long, default_value = "target/rust-issues-stats/persisted-data-dir")]
     persisted_data_dir: PathBuf,
 }
 
@@ -41,8 +43,6 @@ async fn main() -> anyhow::Result<()> {
         after: None,
     };
 
-    std::fs::create_dir_all(args.persisted_data_dir.clone())?;
-
     let mut page = 0;
     loop {
         page += 1;
@@ -50,23 +50,37 @@ async fn main() -> anyhow::Result<()> {
             break;
         }
 
-        let response: graphql_client::Response<ResponseData> = github
-            .octocrab
-            .graphql(
-                &<OpenedAndClosedIssues as graphql_client::GraphQLQuery>::build_query(
-                    variables.clone(),
-                ),
-            )
-            .await?;
-        eprintln!("errors: {:#?}", response.errors);
-
         let mut persited_data_path = args.persisted_data_dir.clone();
-        persited_data_path.push(format!("page-{}_page-size-{}", page, args.page_size));
-        println!(
-            "Writing response to disk. path: {}",
-            persited_data_path.display()
-        );
-        serde_json::to_writer(std::fs::File::create(persited_data_path)?, &response)?;
+        persited_data_path.push(format!("page-size-{}", args.page_size));
+        persited_data_path.push(format!("page-{}.json", page));
+
+        let response: graphql_client::Response<ResponseData> = if persited_data_path.exists() {
+            debug!(
+                "Reading response from disk. path: {}",
+                persited_data_path.display()
+            );
+            serde_json::from_reader(std::fs::File::open(persited_data_path.clone())?)?
+        } else {
+            info!("Making GitHub GraphQL API query (affects rate limit)");
+            let response: graphql_client::Response<ResponseData> = github
+                .octocrab
+                .graphql(
+                    &<OpenedAndClosedIssues as graphql_client::GraphQLQuery>::build_query(
+                        variables.clone(),
+                    ),
+                )
+                .await?;
+            eprintln!("errors: {:#?}", response.errors);
+
+            println!(
+                "Writing response to disk. path: {}",
+                persited_data_path.display()
+            );
+            std::fs::create_dir_all(persited_data_path.parent().unwrap())?;
+            serde_json::to_writer(std::fs::File::create(persited_data_path)?, &response)?;
+
+            response
+        };
 
         let issues = &response
             .data
@@ -77,7 +91,7 @@ async fn main() -> anyhow::Result<()> {
             .unwrap()
             .issues;
 
-        println!("{issues:?}");
+        //println!("{issues:?}");
 
         if issues.page_info.has_next_page {
             variables.after = issues.page_info.end_cursor.clone();
