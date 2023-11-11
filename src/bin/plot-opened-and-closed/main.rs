@@ -36,7 +36,7 @@ pub struct Args {
     accumulated_stats_file: PathBuf,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Hash, PartialEq, Eq)]
 enum Counter {
     Opened,
     Closed,
@@ -64,7 +64,29 @@ impl Default for Counters {
 #[derive(Debug)]
 struct Week(HashMap<Category, Counters>);
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+impl Week {
+    fn opened(&self, category: Category) -> u64 {
+        *self
+            .0
+            .get(&category)
+            .unwrap()
+            .0
+            .get(&Counter::Opened)
+            .unwrap()
+    }
+
+    fn closed(&self, category: Category) -> u64 {
+        *self
+            .0
+            .get(&category)
+            .unwrap()
+            .0
+            .get(&Counter::Closed)
+            .unwrap()
+    }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
 enum Category {
     /// C-bug and without category label
     Bug,
@@ -129,10 +151,10 @@ impl PlotData {
         self.ensure_len(week);
         let week_data = self.week_data.get_mut(week).unwrap();
         week_data
-            .category_data
+            .0
             .entry(category)
             .or_default()
-            .counters
+            .0
             .entry(counter)
             .and_modify(|c| *c += 1)
             .or_insert(1);
@@ -248,30 +270,18 @@ async fn main() -> anyhow::Result<()> {
     let mut week_stats_file = std::fs::File::create(args.week_stats_file).unwrap();
     let mut accumulated_stats_file = std::fs::File::create(args.accumulated_stats_file).unwrap();
     for (idx, week) in data.week_data.iter().enumerate() {
-        write!(week_stats_file, "{}\t{}\t{}\t{}", idx, week).unwrap();
-
-        for category in &[Category::Bug, Category::Enhancement, Category::Other] {
-            total_open
-                .entry(category.clone())
-                .and_modify(|c| {
-                    *c += week.category_data.get(category).unwrap().counters[&Counter::Opened]
-                        as i64
-                        - week.category_data.get(category).unwrap().counters[&Counter::Closed]
-                            as i64
-                })
-                .or_insert(
-                    week.category_data.get(category).unwrap().counters[&Counter::Opened] as i64
-                        - week.category_data.get(category).unwrap().counters[&Counter::Closed]
-                            as i64,
-                );
-        }
-
-        total_open += total_opened as i64 - total_closed as i64;
-        total += total_opened as i64;
-        println!(
-            "{}\t{}\t{}\t{}\t{}",
-            idx, bugs_opened, not_bugs_opened, bugs_closed, not_bugs_closed, total
-        );
+        write!(
+            week_stats_file,
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            idx,
+            week.opened(Category::Bug),
+            week.opened(Category::Enhancement),
+            week.opened(Category::Other),
+            week.closed(Category::Bug),
+            week.closed(Category::Enhancement),
+            week.closed(Category::Other),
+        )
+        .unwrap();
     }
 
     Ok(())
