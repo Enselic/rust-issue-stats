@@ -163,10 +163,10 @@ impl PlotData {
     fn analyze_issues(&mut self, issues: &[Option<OpenedAndClosedIssuesRepositoryIssuesNodes>]) {
         for issue in issues {
             let issue = issue.as_ref().unwrap();
-            let opened_week = ((issue.created_at - self.origin_of_time).num_days() / 7) as usize;
+            let opened_week = ((issue.created_at - self.origin_of_time).num_days() / 30) as usize;
             let closed_week = issue
                 .closed_at()
-                .map(|date| ((date - self.origin_of_time).num_days() / 7) as usize);
+                .map(|date| ((date - self.origin_of_time).num_days() / 30) as usize);
 
             let category = issue.category();
             self.increment(opened_week, category, Counter::Opened);
@@ -265,8 +265,6 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let mut total_open: HashMap<Category, i64> = HashMap::new();
-    let mut total = 0;
     let mut week_stats_file = std::fs::File::create(args.week_stats_file).unwrap();
     let mut accumulated_stats_file = std::fs::File::create(args.accumulated_stats_file).unwrap();
 
@@ -282,7 +280,9 @@ async fn main() -> anyhow::Result<()> {
         "closed Others",
     )
     .unwrap();
+    let mut total: HashMap<Category, u64> = HashMap::new();
     for (idx, week) in data.week_data.iter().enumerate() {
+        // Per week
         writeln!(
             week_stats_file,
             "{}\t{}\t{}\t{}\t{}\t{}\t{}",
@@ -293,6 +293,26 @@ async fn main() -> anyhow::Result<()> {
             week.closed(Category::Bug),
             week.closed(Category::Enhancement),
             week.closed(Category::Other),
+        )
+        .unwrap();
+
+        // Accumulated
+        for category in [Category::Bug, Category::Enhancement, Category::Other] {
+            let delta = week.opened(category) - week.closed(category);
+            total
+                .entry(category)
+                .and_modify(|c| *c += delta)
+                .or_insert(delta);
+        }
+        let sum = total.values().sum::<u64>();
+        writeln!(
+            accumulated_stats_file,
+            "{}\t{}\t{}\t{}\t{}",
+            idx,
+            total.get(&Category::Bug).unwrap(),
+            total.get(&Category::Enhancement).unwrap(),
+            total.get(&Category::Other).unwrap(),
+            sum,
         )
         .unwrap();
     }
