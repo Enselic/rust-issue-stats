@@ -269,8 +269,21 @@ async fn main() -> anyhow::Result<()> {
     let mut total = 0;
     let mut week_stats_file = std::fs::File::create(args.week_stats_file).unwrap();
     let mut accumulated_stats_file = std::fs::File::create(args.accumulated_stats_file).unwrap();
+
+    writeln!(
+        week_stats_file,
+        "{}\t{}\t{}\t{}\t{}\t{}\t{}",
+        "Week",
+        "opened Bugs",
+        "opened Enhancements",
+        "opened Others",
+        "closed Bugs",
+        "closed Enhancements",
+        "closed Others",
+    )
+    .unwrap();
     for (idx, week) in data.week_data.iter().enumerate() {
-        write!(
+        writeln!(
             week_stats_file,
             "{}\t{}\t{}\t{}\t{}\t{}\t{}",
             idx,
