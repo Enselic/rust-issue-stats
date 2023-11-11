@@ -34,11 +34,11 @@ async fn main() -> anyhow::Result<()> {
 
     let github = rust_issue_stats::GitHub::new();
 
-    let variables = Variables {
+    let mut variables = Variables {
         repository_owner: "rust-lang".to_owned(),
         repository_name: "rust".to_owned(),
         page_size: args.page_size,
-        after: None,
+        after: Some("Y3Vyc29yOnYyOpK5MjAxMC0wNi0yMlQyMTowMDoxNyswMjowMM4AA305".to_owned()),
     };
 
     let mut pages_left = args.pages;
@@ -57,6 +57,8 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
+        eprintln!("errors: {:#?}", response.errors);
+
         let issues = &response
             .data
             .as_ref()
@@ -65,24 +67,13 @@ async fn main() -> anyhow::Result<()> {
             .as_ref()
             .unwrap()
             .issues;
+
         println!("{issues:?}");
 
-        // if let Some(page_info) = &issues.page_info {
-        //     variables.after = page_info.end_cursor.clone();
-        // }
-        // if issues.nodes.is_empty() {
-        //     break;
-        // }
-// 
-        // if issues.nodes.is_empty() {
-        //     break;
-        // }
-// 
-        // if !update_page_info(&mut variables, issues) {
-        //     break;
-        // }
+        if issues.page_info.has_next_page {
+            variables.after = issues.page_info.end_cursor.clone();
+        }
     }
-
 
     Ok(())
 }

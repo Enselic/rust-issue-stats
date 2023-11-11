@@ -25,6 +25,24 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug executable 'plot-opened-and-closed'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=plot-opened-and-closed",
+                    "--package=rust-issue-events"
+                ],
+                "filter": {
+                    "name": "plot-opened-and-closed",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug unit tests in executable 'rust-issue-events'",
             "cargo": {
                 "args": [
