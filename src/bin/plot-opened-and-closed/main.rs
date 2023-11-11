@@ -45,40 +45,16 @@ struct WeekData {
     category_data: HashMap<Category, CategoryData>,
 }
 
-/*
-
-C-bug
-
-C-enhancement, C-feature-request, C-optimization, C-cleanup, C-feature-accepted
-C-discussion
-C-future-compatibility
-C-tracking-issue
-
-*/
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 enum Category {
     /// C-bug and without category label
     Bug,
-    /// C-cleanup, C-discussion, C-enhancement, etc, etc.
+    /// C-enhancement, C-feature-request, C-optimization, C-cleanup, C-feature-accepted, C-tracking-issue
     Enhancement,
+    /// C-discussion, C-future-compatibility
+    Other,
 }
 
-impl Category {
-    fn from_c_labels(s: &[&str]) -> Self {
-        if s.len() == 0 {
-            return Self::Bug;
-        }
-
-        if s.iter().any(|l| l == &"C-bug") {
-            return Self::Bug;
-        }
-
-        match s {
-            "C-bug" => Self::Bug,
-            _ => Self::NotBug,
-        }
-    }
-}
 
 #[derive(Debug)]
 struct PlotData {
@@ -89,17 +65,15 @@ struct PlotData {
 impl OpenedAndClosedIssuesRepositoryIssuesNodes {
     fn category(&self) -> Category {
         let labels = self.labels.as_ref().unwrap();
-        if labels
+        let category_labels: Vec<_>= labels
             .nodes
             .as_ref()
             .unwrap()
             .iter()
-            .any(|label| label.as_ref().unwrap().name == "C-bug")
-        {
-            Category::Bug
-        } else {
-            Category::NotBug
-        }
+            .flatten()
+            .filter(|label| label.name.starts_with("C-"))
+            .map(|label|&label.name).collect();
+        Category::from_c_labels(&category_labels)
     }
 
     // TODO: Handle re-opened issues.
@@ -283,4 +257,50 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+impl Category {
+    fn from_c_labels(s: &[&String]) -> Self {
+        if s.len() == 0 {
+            return Self::Bug;
+        }
+
+        if s.iter().any(|l| l == &"C-bug") {
+            return Self::Bug;
+        }
+
+        if s.iter().any(|l| l == &"C-enhancement") {
+            return Self::Enhancement;
+        }
+
+        if s.iter().any(|l| l == &"C-feature-request") {
+            return Self::Enhancement;
+        }
+
+        if s.iter().any(|l| l == &"C-optimization") {
+            return Self::Enhancement;
+        }
+
+        if s.iter().any(|l| l == &"C-cleanup") {
+            return Self::Enhancement;
+        }
+
+        if s.iter().any(|l| l == &"C-feature-accepted") {
+            return Self::Enhancement;
+        }
+
+        if s.iter().any(|l| l == &"C-tracking-issue") {
+            return Self::Enhancement;
+        }
+
+        if s.iter().any(|l| l == &"C-discussion") {
+            return Self::Other;
+        }
+
+        if s.iter().any(|l| l == &"C-future-compatibility") {
+            return Self::Other;
+        }
+
+        unreachable!("Unknown category labels: {:?}", s);
+    }
 }
