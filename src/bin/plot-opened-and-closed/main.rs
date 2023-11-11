@@ -1,20 +1,21 @@
 use std::path::PathBuf;
 
 type URI = String;
+type DateTime = chrono::DateTime<chrono::Utc>;
 
 #[derive(graphql_client::GraphQLQuery)]
 #[graphql(
     schema_path = "schemas/github_schema.graphql",
     query_path = "src/bin/plot-opened-and-closed/opened-and-closed.graphql",
-    variables_derives = "Clone, Debug, Serialize",
-    response_derives = "Clone, Debug, Serialize"
+    variables_derives = "Clone, Debug",
+    response_derives = "Clone, Debug"
 )]
 pub struct OpenedAndClosedIssues;
 
 #[derive(clap::Parser, Debug)]
 pub struct Args {
     #[arg(long, default_value = "10")]
-    page_size: u16,
+    page_size: i64,
 
     #[arg(long, default_value = "2")]
     pages: usize,
@@ -29,10 +30,13 @@ async fn main() -> anyhow::Result<()> {
 
     let args = <Args as clap::Parser>::parse();
 
-    let github = GitHub::new();
+    let github = rust_issue_stats::GitHub::new();
 
-    let variables = issues_query::Variables {
+    let variables = opened_and_closed_issues::Variables {
+        repository_owner: "rust-lang".to_owned(),
+        repository_name: "rust".to_owned(),
         page_size: args.page_size,
+        after: None,
     };
 
     github

@@ -1,7 +1,7 @@
-query OpenedAndClosedIssues($repositoryOwner: String!, $repositoryName: String!, $after: String) {
+query OpenedAndClosedIssues($repositoryOwner: String!, $repositoryName: String!, $pageSize: Int!, $after: String) {
   repository(owner: $repositoryOwner, name: $repositoryName) {
     issues(
-      first: 100
+      first: $pageSize
       after: $after
       orderBy: {direction: ASC, field: CREATED_AT}
     ) {
