@@ -48,19 +48,22 @@ struct WeekData {
 /*
 
 C-bug
-C-cleanup
-C-discussion
+
 C-enhancement
-C-feature-accepted
 C-feature-request
-C-future-compatibility
 C-optimization
+C-cleanup
+
+C-discussion
+C-future-compatibility
+
+C-feature-accepted
 C-tracking-issue
 
 */
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 enum Category {
-    /// C-bug
+    /// C-bug and issues without a C- label
     Bug,
     /// C-cleanup, C-discussion, C-enhancement, etc, etc.
     NotBug,
