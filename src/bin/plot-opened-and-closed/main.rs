@@ -1,6 +1,6 @@
 use anyhow::Context;
 use chrono::Utc;
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
 use tracing::*;
 
@@ -34,7 +34,6 @@ pub struct Args {
 struct WeekData {
     opened: u64,
     closed: u64,
-    total_open: u64,
 }
 
 #[derive(Debug)]
@@ -121,8 +120,6 @@ async fn main() -> anyhow::Result<()> {
         persited_data_path.push(format!("page-{}.json", page));
         std::fs::create_dir_all(persited_data_path.parent().unwrap())?;
 
-        eprintln!("NORDH 1");
-
         let response: graphql_client::Response<ResponseData> = if persited_data_path.exists() {
             debug!(
                 "Reading response from disk. path: {}",
@@ -152,24 +149,9 @@ async fn main() -> anyhow::Result<()> {
 
             let mut tmp = persited_data_path.clone();
             tmp.set_extension("json.tmp");
-            let file = std::fs::File::create(&tmp).with_context(|| {
-                format!(
-                    "Failed to create file for writing. path: {}",
-                    persited_data_path.display()
-                )
-            }).unwrap();
-            serde_json::to_writer(&file, &response).with_context(|| {
-                format!(
-                    "Failed to serialize response to JSON. path: {}",
-                    persited_data_path.display()
-                )
-            }).unwrap();
-            file.sync_all().with_context(|| {
-                format!(
-                    "Failed to sync file to disk. path: {}",
-                    persited_data_path.display()
-                )
-            }).unwrap();
+            let file = std::fs::File::create(&tmp).unwrap();
+            serde_json::to_writer(&file, &response).unwrap();
+            file.sync_all().unwrap();
             std::fs::rename(tmp, &persited_data_path).unwrap();
 
             response
