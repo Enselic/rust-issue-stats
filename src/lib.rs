@@ -4,7 +4,7 @@ use tracing_subscriber::FmtSubscriber;
 
 /// GitHub GraphQL API wrapper.
 pub struct GitHub {
-    octocrab: octocrab::Octocrab,
+    pub octocrab: octocrab::Octocrab,
 }
 
 impl Default for GitHub {
