@@ -135,7 +135,11 @@ async fn main() -> anyhow::Result<()> {
                     ),
                 )
                 .await?;
-            eprintln!("errors: {:#?}", response.errors);
+
+            if let Some(errors) = response.errors {
+                eprintln!("errors: {:#?}", errors);
+                break;
+            }
 
             println!(
                 "Writing response to disk. path: {}",
@@ -171,7 +175,10 @@ async fn main() -> anyhow::Result<()> {
     for (idx, week) in data.week_data.iter().enumerate() {
         total_open += week.opened as i64 - week.closed as i64;
         total += week.opened as i64;
-        println!("{}\t{}\t{}\t{}\t{}", idx, week.opened, week.closed, total_open, total);
+        println!(
+            "{}\t{}\t{}\t{}\t{}",
+            idx, week.opened, week.closed, total_open, total
+        );
     }
 
     Ok(())
