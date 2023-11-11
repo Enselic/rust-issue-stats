@@ -30,14 +30,14 @@
                 "args": [
                     "build",
                     "--bin=plot-opened-and-closed",
-                    "--package=rust-issue-events"
+                    "--package=rust-issue-stats"
                 ],
                 "filter": {
                     "name": "plot-opened-and-closed",
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": ["--page-size", "33", "--pages", "100000"],
             "cwd": "${workspaceFolder}"
         },
         {

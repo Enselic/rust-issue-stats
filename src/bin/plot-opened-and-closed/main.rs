@@ -1,3 +1,4 @@
+use anyhow::Context;
 use chrono::Utc;
 use std::{collections::HashMap, path::PathBuf};
 
@@ -118,6 +119,9 @@ async fn main() -> anyhow::Result<()> {
         let mut persited_data_path = args.persisted_data_dir.clone();
         persited_data_path.push(format!("page-size-{}", args.page_size));
         persited_data_path.push(format!("page-{}.json", page));
+        std::fs::create_dir_all(persited_data_path.parent().unwrap())?;
+
+        eprintln!("NORDH 1");
 
         let response: graphql_client::Response<ResponseData> = if persited_data_path.exists() {
             debug!(
@@ -145,8 +149,28 @@ async fn main() -> anyhow::Result<()> {
                 "Writing response to disk. path: {}",
                 persited_data_path.display()
             );
-            std::fs::create_dir_all(persited_data_path.parent().unwrap())?;
-            serde_json::to_writer(std::fs::File::create(persited_data_path)?, &response)?;
+
+            let mut tmp = persited_data_path.clone();
+            tmp.set_extension("json.tmp");
+            let file = std::fs::File::create(&tmp).with_context(|| {
+                format!(
+                    "Failed to create file for writing. path: {}",
+                    persited_data_path.display()
+                )
+            }).unwrap();
+            serde_json::to_writer(&file, &response).with_context(|| {
+                format!(
+                    "Failed to serialize response to JSON. path: {}",
+                    persited_data_path.display()
+                )
+            }).unwrap();
+            file.sync_all().with_context(|| {
+                format!(
+                    "Failed to sync file to disk. path: {}",
+                    persited_data_path.display()
+                )
+            }).unwrap();
+            std::fs::rename(tmp, &persited_data_path).unwrap();
 
             response
         };
