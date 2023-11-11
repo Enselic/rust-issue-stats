@@ -1,5 +1,5 @@
 use chrono::Utc;
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use tracing::*;
 
@@ -29,10 +29,22 @@ pub struct Args {
     persisted_data_dir: PathBuf,
 }
 
-#[derive(Debug, Default)]
-struct WeekData {
+#[derive(Debug, Clone, Hash)]
+struct CategoryData {
     opened: u64,
     closed: u64,
+}
+#[derive(Debug, Default)]
+struct WeekData {
+    category_data: HashMap<Category, CategoryData>,
+}
+
+#[derive(Debug, Clone, Hash)]
+enum Category {
+    /// C-bug
+    Bug,
+    /// C-cleanup, C-discussion, C-enhancement, etc, etc.
+    NotBug,
 }
 
 #[derive(Debug)]
@@ -42,6 +54,22 @@ struct PlotData {
 }
 
 impl OpenedAndClosedIssuesRepositoryIssuesNodes {
+    fn category(&self) -> Category {
+        let labels = self.labels.as_ref().unwrap();
+        if labels
+            .nodes
+            .as_ref()
+            .unwrap()
+            .iter()
+            .any(|label| label.as_ref().unwrap().name == "C-bug")
+        {
+            Category::Bug
+        } else {
+            Category::NotBug
+        }
+    }
+
+    // TODO: Handle re-opened issues.
     fn closed_at(&self) -> Option<DateTime> {
         for item in self.timeline_items.nodes.as_ref().unwrap() {
             if let Some(
@@ -65,6 +93,12 @@ impl PlotData {
         }
     }
 
+    fn ensure_len(&mut self, len: usize) {
+        if self.week_data.len() <= len {
+            self.week_data.resize_with(len + 1, WeekData::default);
+        }
+    }
+
     fn analyze_issues(&mut self, issues: &[Option<OpenedAndClosedIssuesRepositoryIssuesNodes>]) {
         for issue in issues {
             let issue = issue.as_ref().unwrap();
@@ -73,17 +107,11 @@ impl PlotData {
                 .closed_at()
                 .map(|date| ((date - self.origin_of_time).num_days() / 7) as usize);
 
-            if self.week_data.len() <= opened_week {
-                self.week_data
-                    .resize_with(opened_week + 1, || WeekData::default());
-            }
+            self.ensure_len(opened_week);
             self.week_data.get_mut(opened_week).unwrap().opened += 1;
 
             if let Some(closed_week) = closed_week {
-                if self.week_data.len() <= closed_week {
-                    self.week_data
-                        .resize_with(closed_week + 1, || WeekData::default());
-                }
+                self.ensure_len(closed_week);
                 self.week_data.get_mut(closed_week).unwrap().closed += 1;
             }
         }
