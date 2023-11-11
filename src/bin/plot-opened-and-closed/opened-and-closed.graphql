@@ -1,0 +1,42 @@
+query ($repositoryOwner: String!, $repositoryName: String!, $after: String) {
+  repository(owner: $repositoryOwner, name: $repositoryName) {
+    issues(
+      first: 100
+      after: $after
+      orderBy: {direction: ASC, field: CREATED_AT}
+    ) {
+      totalCount
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        number
+        createdAt
+        url
+        title
+        timelineItems(first: 250, itemTypes: [REOPENED_EVENT, CLOSED_EVENT]) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            ... on ReopenedEvent {
+              actor {
+                login
+              }
+              createdAt
+            }
+            ... on ClosedEvent {
+              actor {
+                login
+              }
+              createdAt
+            }
+          }
+        }
+      }
+    }
+  }
+}
