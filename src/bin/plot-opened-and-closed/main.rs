@@ -49,24 +49,35 @@ struct WeekData {
 
 C-bug
 
-C-enhancement
-C-feature-request
-C-optimization
-C-cleanup
-
+C-enhancement, C-feature-request, C-optimization, C-cleanup, C-feature-accepted
 C-discussion
 C-future-compatibility
-
-C-feature-accepted
 C-tracking-issue
 
 */
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 enum Category {
-    /// C-bug and issues without a C- label
+    /// C-bug and without category label
     Bug,
     /// C-cleanup, C-discussion, C-enhancement, etc, etc.
-    NotBug,
+    Enhancement,
+}
+
+impl Category {
+    fn from_c_labels(s: &[&str]) -> Self {
+        if s.len() == 0 {
+            return Self::Bug;
+        }
+
+        if s.iter().any(|l| l == &"C-bug") {
+            return Self::Bug;
+        }
+
+        match s {
+            "C-bug" => Self::Bug,
+            _ => Self::NotBug,
+        }
+    }
 }
 
 #[derive(Debug)]
