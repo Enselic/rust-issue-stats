@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use chrono::Utc;
+use std::{path::PathBuf, collections::HashMap};
 
 use tracing::*;
 
@@ -28,6 +29,77 @@ pub struct Args {
     persisted_data_dir: PathBuf,
 }
 
+struct WeekData {
+    opened: u64,
+    closed: u64,
+    total_open: u64,
+}
+
+struct PlotData {
+    origin_of_time: DateTime,
+    week_data: HashMap<u64, WeekData>
+}
+
+impl OpenedAndClosedIssuesRepositoryIssuesNodes {
+    fn closed_at(&self) -> Option<DateTime> {
+        for item in self.timeline_items.nodes.as_ref().unwrap() {
+            if let Some(OpenedAndClosedIssuesRepositoryIssuesNodesTimelineItemsNodes::ClosedEvent(event)) = &item {
+                return Some(event.created_at);
+            }
+        }
+        return None;
+    }
+}
+
+impl PlotData {
+    fn new() -> Self {
+        Self {
+            origin_of_time: chrono::DateTime::parse_from_rfc3339("2010-06-21T00:00:00Z").unwrap().with_timezone(&Utc),
+            week_data: HashMap::new(),
+        }
+    }
+
+    fn analyze_issues(&mut self, issues: &[OpenedAndClosedIssuesRepositoryIssuesNodes]) {
+        for issue in issues {
+            let opened_week = issue.created_at - self.origin_of_time;
+            let closed_week = issue.closed_at - self.origin_of_time;
+
+            let opened_week = 
+            let closed = issue.closed_at;
+            let total_open = issue.closed_at;
+
+            let opened_week = opened.week();
+            let closed_week = closed.week();
+            let total_open_week = total_open.week();
+
+            self.add(opened_week, closed_week, total_open_week, opened_week);
+        }
+        for issue in &issues.nodes {
+            let opened = issue.created_at;
+            let closed = issue.closed_at;
+            let total_open = issue.closed_at;
+
+            let opened_week = opened.week();
+            let closed_week = closed.week();
+            let total_open_week = total_open.week();
+
+            self.add(opened_week, closed_week, total_open_week, opened_week);
+        }
+    }
+
+    fn add(&mut self, opened: u64, closed: u64, total_open: u64, week: u64) {
+        let week_data = self.week_data.entry(week).or_insert(WeekData {
+            opened: 0,
+            closed: 0,
+            total_open: 0,
+        });
+
+        week_data.opened += opened;
+        week_data.closed += closed;
+        week_data.total_open += total_open;
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     rust_issue_stats::log_init()?;
@@ -42,6 +114,7 @@ async fn main() -> anyhow::Result<()> {
         page_size: args.page_size,
         after: None,
     };
+
 
     let mut page = 0;
     loop {
@@ -92,6 +165,7 @@ async fn main() -> anyhow::Result<()> {
             .issues;
 
         //println!("{issues:?}");
+        let nodes: () = &issues.nodes.unwrap();
 
         if issues.page_info.has_next_page {
             variables.after = issues.page_info.end_cursor.clone();
