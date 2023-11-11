@@ -1,4 +1,4 @@
-query ($repositoryOwner: String!, $repositoryName: String!, $after: String) {
+query OpenedAndClosedIssues($repositoryOwner: String!, $repositoryName: String!, $after: String) {
   repository(owner: $repositoryOwner, name: $repositoryName) {
     issues(
       first: 100
@@ -22,14 +22,17 @@ query ($repositoryOwner: String!, $repositoryName: String!, $after: String) {
             endCursor
           }
           nodes {
+            __typename
             ... on ReopenedEvent {
               actor {
+                __typename
                 login
               }
               createdAt
             }
             ... on ClosedEvent {
               actor {
+                __typename
                 login
               }
               createdAt

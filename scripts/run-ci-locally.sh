@@ -8,12 +8,10 @@ set -o nounset -o pipefail -o errexit -o xtrace
 # CI sets this, so we should too
 export CARGO_TERM_COLOR=always
 
-cargo fmt -- --check
-
-RUSTDOCFLAGS='--deny warnings' cargo doc --locked --no-deps --document-private-items
+cargo test --locked
 
 cargo clippy --all-targets --all-features -- -D clippy::all
 
-cargo build --locked
+cargo fmt -- --check
 
-cargo test --locked
+RUSTDOCFLAGS='--deny warnings' cargo doc --locked --no-deps --document-private-items

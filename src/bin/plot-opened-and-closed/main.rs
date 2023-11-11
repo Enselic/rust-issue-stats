@@ -25,7 +25,7 @@ pub struct Args {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    log_init()?;
+    rust_issue_stats::log_init()?;
 
     let args = <Args as clap::Parser>::parse();
 
@@ -34,6 +34,7 @@ async fn main() -> anyhow::Result<()> {
     let variables = issues_query::Variables {
         page_size: args.page_size,
     };
+
     github
         .for_issues_with_timeline(
             variables,
