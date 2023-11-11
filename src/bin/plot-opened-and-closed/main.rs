@@ -1,5 +1,5 @@
 use chrono::Utc;
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, hash::Hash, path::PathBuf};
 
 use tracing::*;
 
@@ -29,17 +29,36 @@ pub struct Args {
     persisted_data_dir: PathBuf,
 }
 
-#[derive(Debug, Clone, Hash)]
-struct CategoryData {
-    opened: u64,
-    closed: u64,
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+enum Counter {
+    Opened,
+    Closed,
 }
+
+#[derive(Debug, Clone, Default)]
+struct CategoryData {
+    counters: HashMap<Counter, u64>,
+}
+
 #[derive(Debug, Default)]
 struct WeekData {
     category_data: HashMap<Category, CategoryData>,
 }
 
-#[derive(Debug, Clone, Hash)]
+/*
+
+C-bug
+C-cleanup
+C-discussion
+C-enhancement
+C-feature-accepted
+C-feature-request
+C-future-compatibility
+C-optimization
+C-tracking-issue
+
+*/
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 enum Category {
     /// C-bug
     Bug,
@@ -99,6 +118,19 @@ impl PlotData {
         }
     }
 
+    fn increment(&mut self, week: usize, category: Category, counter: Counter) {
+        self.ensure_len(week);
+        let week_data = self.week_data.get_mut(week).unwrap();
+        week_data
+            .category_data
+            .entry(category)
+            .or_default()
+            .counters
+            .entry(counter)
+            .and_modify(|c| *c += 1)
+            .or_insert(1);
+    }
+
     fn analyze_issues(&mut self, issues: &[Option<OpenedAndClosedIssuesRepositoryIssuesNodes>]) {
         for issue in issues {
             let issue = issue.as_ref().unwrap();
@@ -107,12 +139,11 @@ impl PlotData {
                 .closed_at()
                 .map(|date| ((date - self.origin_of_time).num_days() / 7) as usize);
 
-            self.ensure_len(opened_week);
-            self.week_data.get_mut(opened_week).unwrap().opened += 1;
+            let category = issue.category();
+            self.increment(opened_week, category, Counter::Opened);
 
             if let Some(closed_week) = closed_week {
-                self.ensure_len(closed_week);
-                self.week_data.get_mut(closed_week).unwrap().closed += 1;
+                self.increment(closed_week, category, Counter::Closed);
             }
         }
     }
@@ -205,14 +236,35 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let mut total_open = 0;
+    let mut total_open: HashMap<Category, i64> = HashMap::new();
     let mut total = 0;
     for (idx, week) in data.week_data.iter().enumerate() {
-        total_open += week.opened as i64 - week.closed as i64;
-        total += week.opened as i64;
+        for category in &[Category::Bug, Category::NotBug] {
+            total_open
+                .entry(category.clone())
+                .and_modify(|c| *c += week.category_data.get(category).unwrap().counters[&Counter::Opened] as i64 - week.category_data.get(category).unwrap().counters[&Counter::Closed] as i64)
+                .or_insert(week.category_data.get(category).unwrap().counters[&Counter::Opened] as i64 - week.category_data.get(category).unwrap().counters[&Counter::Closed] as i64);
+        }
+        let bugs_opened =
+            week.category_data.get(&Category::Bug).unwrap().counters[&Counter::Opened];
+        let bugs_closed =
+            week.category_data.get(&Category::Bug).unwrap().counters[&Counter::Closed];
+
+        let not_bugs_opened =
+            week.category_data.get(&Category::NotBug).unwrap().counters[&Counter::Opened];
+        let not_bugs_closed =
+            week.category_data.get(&Category::NotBug).unwrap().counters[&Counter::Closed];
+
+        let total_opened = bugs_opened + not_bugs_opened;
+        let total_bugs = bugs_opened - bugs_closed;
+        let 
+        let total_closed = bugs_closed + not_bugs_closed;
+
+        total_open += total_opened as i64 - total_closed as i64;
+        total += total_opened as i64;
         println!(
             "{}\t{}\t{}\t{}\t{}",
-            idx, week.opened, week.closed, total_open, total
+            idx, bugs_opened, not_bugs_opened, bugs_closed, not_bugs_closed, total
         );
     }
 
