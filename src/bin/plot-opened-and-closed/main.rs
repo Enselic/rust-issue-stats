@@ -42,7 +42,7 @@ async fn main() -> anyhow::Result<()> {
         after: None,
     };
 
-    let mut data = PlotData::new();
+    let mut plot_data = PlotData::new();
 
     let mut page = 0;
     loop {
@@ -105,7 +105,7 @@ async fn main() -> anyhow::Result<()> {
             .issues;
 
         //println!("{issues:?}");
-        data.analyze_issues(issues.nodes.as_ref().unwrap());
+        plot_data.analyze_issues(issues.nodes.as_ref().unwrap());
 
         if issues.page_info.has_next_page {
             variables.after = issues.page_info.end_cursor.clone();
@@ -136,19 +136,19 @@ async fn main() -> anyhow::Result<()> {
     )
     .unwrap();
 
+    let mut sorted_periods = plot_data.periods.keys().collect::<Vec<_>>();
+    sorted_periods.sort();
+
     let mut total: HashMap<IssueCategory, i64> = HashMap::new();
-    for (idx, week) in data.week_data.iter().enumerate() {
+
+    for period in sorted_periods {
         // Per week
         writeln!(
             week_stats_file,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            idx,
-            week.opened(IssueCategory::Bug),
-            week.opened(IssueCategory::Improvement),
-            week.opened(IssueCategory::Uncategorized),
-            week.closed(IssueCategory::Bug),
-            week.closed(IssueCategory::Improvement),
-            week.closed(IssueCategory::Uncategorized),
+            "{}\t{}\t{}",
+            period,
+            plot_data.get(period, IssueCategory::Bug, Counter::Opened),
+            plot_data.get(period, IssueCategory::Bug, Counter::Closed),
         )
         .unwrap();
 
@@ -158,7 +158,8 @@ async fn main() -> anyhow::Result<()> {
             IssueCategory::Improvement,
             IssueCategory::Uncategorized,
         ] {
-            let delta = week.opened(category) - week.closed(category);
+            let delta = plot_data.get(*period, category, Counter::Opened)
+                - plot_data.get(*period, category, Counter::Closed);
             total
                 .entry(category)
                 .and_modify(|c| *c += delta)
@@ -170,7 +171,7 @@ async fn main() -> anyhow::Result<()> {
         writeln!(
             accumulated_stats_file,
             "{}\t{}\t{}\t{}\t{}",
-            idx,
+            period,
             total.get(&IssueCategory::Bug).unwrap(),
             total.get(&IssueCategory::Improvement).unwrap(),
             total.get(&IssueCategory::Uncategorized).unwrap(),
@@ -208,6 +209,10 @@ impl PlotData {
                 self.increment(closed_week, category, Counter::Closed);
             }
         }
+    }
+
+    fn get(&self, period: Period, category: IssueCategory, counter: Counter) -> i64 {
+        self.periods.get(&period).unwrap().get(category, counter)
     }
 }
 
@@ -257,14 +262,14 @@ impl IssueCategory {
     }
 }
 
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Copy)]
 pub struct Period {
     year: i32,
     month: u32,
 }
 
 #[derive(Debug)]
-struct PlotData {
+pub struct PlotData {
     /// Maps a period such as "2023-07" (year and month) to period data.
     periods: HashMap<Period, PeriodData>,
 }

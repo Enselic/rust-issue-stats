@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
-use chrono::{Utc, Datelike};
+use chrono::{Datelike, Utc};
 
 use super::*;
 
@@ -80,4 +80,10 @@ pub enum IssueCategory {
     Improvement,
     /// C-discussion and issues without a C-* label.
     Uncategorized,
+}
+
+impl Display for Period {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.year, self.month)
+    }
 }
