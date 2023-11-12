@@ -31,9 +31,9 @@ impl Default for Counters {
 /// Represents a period of stats. Either one week or one month depending on user
 /// preference.
 #[derive(Debug)]
-pub struct Period(HashMap<IssueCategory, Counters>);
+pub struct PeriodData(HashMap<IssueCategory, Counters>);
 
-impl Default for Period {
+impl Default for PeriodData {
     fn default() -> Self {
         Self(HashMap::from([
             (IssueCategory::Bug, Counters::default()),
@@ -43,7 +43,7 @@ impl Default for Period {
     }
 }
 
-impl Period {
+impl PeriodData {
     fn opened(&self, category: IssueCategory) -> i64 {
         *self
             .0

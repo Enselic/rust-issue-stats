@@ -196,7 +196,7 @@ impl PlotData {
 
     fn ensure_len(&mut self, len: usize) {
         if self.week_data.len() <= len {
-            self.week_data.resize_with(len + 1, Period::default);
+            self.week_data.resize_with(len + 1, PeriodData::default);
         }
     }
 
@@ -278,10 +278,16 @@ impl IssueCategory {
     }
 }
 
+#[derive(Debug, Hash, Eq, PartialEq)]
+pub struct Period {
+    year: i32,
+    week_or_month: i32,
+}
+
 #[derive(Debug)]
 struct PlotData {
-    origin_of_time: DateTime,
-    week_data: Vec<Period>,
+    /// Maps a period such as "2023-07" (year and month) to period data.
+    periods: HashMap<Period, PeriodData>,
 }
 
 impl OpenedAndClosedIssuesRepositoryIssuesNodes {
