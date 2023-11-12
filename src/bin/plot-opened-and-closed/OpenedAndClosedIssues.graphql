@@ -31,18 +31,15 @@ query OpenedAndClosedIssues($repositoryOwner: String!, $repositoryName: String!,
           nodes {
             __typename
             ... on ReopenedEvent {
-              actor {
-                __typename
-                login
-              }
               createdAt
             }
             ... on ClosedEvent {
-              actor {
-                __typename
-                login
-              }
               createdAt
+            }
+            ... on CrossReferencedEvent {
+              createdAt
+              referencedAt
+              willCloseTarget
             }
           }
         }

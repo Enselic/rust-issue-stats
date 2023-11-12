@@ -119,6 +119,7 @@ impl OpenedAndClosedIssuesRepositoryIssuesNodes {
 
     // TODO: Handle re-opened issues.
     fn closed_at(&self) -> Option<DateTime> {
+        let mut last_cross_referenced = None;
         for item in self.timeline_items.nodes.as_ref().unwrap() {
             if let Some(
                 OpenedAndClosedIssuesRepositoryIssuesNodesTimelineItemsNodes::ClosedEvent(event),
@@ -126,10 +127,24 @@ impl OpenedAndClosedIssuesRepositoryIssuesNodes {
             {
                 return Some(event.created_at);
             }
+            if let Some(
+                OpenedAndClosedIssuesRepositoryIssuesNodesTimelineItemsNodes::CrossReferencedEvent(
+                    event,
+                ),
+            ) = &item
+            {
+                if event.will_close_target {
+                    last_cross_referenced = Some(event.created_at);
+                }
+            }
         }
         if self.state != IssueState::OPEN {
-            eprintln!("{:?} event found for issue: {:#?}", self.state, self.url);
-            return Some(self.created_at);
+            if last_cross_referenced.is_some() {
+                return last_cross_referenced;
+            } else {
+                eprintln!("{:?} event found for issue: {:#?}", self.state, self.url);
+                return Some(self.created_at);
+            }
         }
         return None;
     }
@@ -208,7 +223,7 @@ async fn main() -> anyhow::Result<()> {
 
         let mut persited_data_path = args.persisted_data_dir.clone();
         persited_data_path.push(format!("page-size-{}", args.page_size));
-        persited_data_path.push(format!("page-v2-{}.json", page));
+        persited_data_path.push(format!("page-v3-{}.json", page));
         std::fs::create_dir_all(persited_data_path.parent().unwrap()).unwrap();
 
         let response: graphql_client::Response<ResponseData> = if persited_data_path.exists() {
