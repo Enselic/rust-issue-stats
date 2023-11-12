@@ -1,4 +1,3 @@
-use chrono::Utc;
 use std::io::Write;
 use std::{collections::HashMap, hash::Hash, path::PathBuf};
 
@@ -147,8 +146,8 @@ async fn main() -> anyhow::Result<()> {
             week_stats_file,
             "{}\t{}\t{}",
             period,
-            plot_data.get(period, IssueCategory::Bug, Counter::Opened),
-            plot_data.get(period, IssueCategory::Bug, Counter::Closed),
+            plot_data.get(*period, IssueCategory::Bug, Counter::Opened),
+            plot_data.get(*period, IssueCategory::Bug, Counter::Closed),
         )
         .unwrap();
 
@@ -165,9 +164,7 @@ async fn main() -> anyhow::Result<()> {
                 .and_modify(|c| *c += delta)
                 .or_insert(delta);
         }
-        let sum = total.get(&IssueCategory::Bug).unwrap()
-            + total.get(&IssueCategory::Improvement).unwrap()
-            + total.get(&IssueCategory::Uncategorized).unwrap();
+        let sum = total.values().sum::<i64>();
         writeln!(
             accumulated_stats_file,
             "{}\t{}\t{}\t{}\t{}",
@@ -191,8 +188,7 @@ impl PlotData {
     }
 
     fn increment(&mut self, period: Period, category: IssueCategory, counter: Counter) {
-        let period_data = self
-            .periods
+        self.periods
             .entry(period)
             .or_default()
             .increment(category, counter);
@@ -262,7 +258,7 @@ impl IssueCategory {
     }
 }
 
-#[derive(Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Copy)]
+#[derive(Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Copy, Clone)]
 pub struct Period {
     year: i32,
     month: u32,
