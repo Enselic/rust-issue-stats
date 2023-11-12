@@ -46,7 +46,7 @@ impl Default for Week {
     fn default() -> Self {
         Self(HashMap::from([
             (Category::Bug, Counters::default()),
-            (Category::Enhancement, Counters::default()),
+            (Category::Improvement, Counters::default()),
             (Category::Other, Counters::default()),
         ]))
     }
@@ -91,7 +91,7 @@ enum Category {
     /// C-bug and without category label
     Bug,
     /// C-enhancement, C-feature-request, C-optimization, C-cleanup, C-feature-accepted, C-tracking-issue
-    Enhancement,
+    Improvement,
     /// C-discussion, C-future-compatibility
     Other,
 }
@@ -160,10 +160,10 @@ impl PlotData {
     fn analyze_issues(&mut self, issues: &[Option<OpenedAndClosedIssuesRepositoryIssuesNodes>]) {
         for issue in issues {
             let issue = issue.as_ref().unwrap();
-            let opened_week = ((issue.created_at - self.origin_of_time).num_days() / 365) as usize;
+            let opened_week = ((issue.created_at - self.origin_of_time).num_days() / 30) as usize;
             let closed_week = issue
                 .closed_at()
-                .map(|date| ((date - self.origin_of_time).num_days() / 365) as usize);
+                .map(|date| ((date - self.origin_of_time).num_days() / 30) as usize);
 
             let category = issue.category();
             self.increment(opened_week, category, Counter::Opened);
@@ -201,7 +201,7 @@ async fn main() -> anyhow::Result<()> {
 
         let mut persited_data_path = args.persisted_data_dir.clone();
         persited_data_path.push(format!("page-size-{}", args.page_size));
-        persited_data_path.push(format!("page-v3-{}.json", page));
+        persited_data_path.push(format!("page-v4-{}.json", page));
         std::fs::create_dir_all(persited_data_path.parent().unwrap()).unwrap();
 
         let response: graphql_client::Response<ResponseData> = if persited_data_path.exists() {
@@ -285,7 +285,6 @@ async fn main() -> anyhow::Result<()> {
     .unwrap();
 
     let mut total: HashMap<Category, i64> = HashMap::new();
-    let mut all = 0;
     for (idx, week) in data.week_data.iter().enumerate() {
         // Per week
         writeln!(
@@ -293,35 +292,33 @@ async fn main() -> anyhow::Result<()> {
             "{}\t{}\t{}\t{}\t{}\t{}\t{}",
             idx,
             week.opened(Category::Bug),
-            week.opened(Category::Enhancement),
+            week.opened(Category::Improvement),
             week.opened(Category::Other),
             week.closed(Category::Bug),
-            week.closed(Category::Enhancement),
+            week.closed(Category::Improvement),
             week.closed(Category::Other),
         )
         .unwrap();
 
         // Accumulated
-        for category in [Category::Bug, Category::Enhancement, Category::Other] {
+        for category in [Category::Bug, Category::Improvement, Category::Other] {
             let delta = week.opened(category) - week.closed(category);
-            all += week.closed(category);
             total
                 .entry(category)
                 .and_modify(|c| *c += delta)
                 .or_insert(delta);
         }
         let sum = total.get(&Category::Bug).unwrap()
-            + total.get(&Category::Enhancement).unwrap()
+            + total.get(&Category::Improvement).unwrap()
             + total.get(&Category::Other).unwrap();
         writeln!(
             accumulated_stats_file,
-            "{}\t{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}",
             idx,
             total.get(&Category::Bug).unwrap(),
-            total.get(&Category::Enhancement).unwrap(),
+            total.get(&Category::Improvement).unwrap(),
             total.get(&Category::Other).unwrap(),
             sum,
-            all,
         )
         .unwrap();
     }
@@ -340,27 +337,27 @@ impl Category {
         }
 
         if s.iter().any(|l| l == &"C-enhancement") {
-            return Self::Enhancement;
+            return Self::Improvement;
         }
 
         if s.iter().any(|l| l == &"C-feature-request") {
-            return Self::Enhancement;
+            return Self::Improvement;
         }
 
         if s.iter().any(|l| l == &"C-optimization") {
-            return Self::Enhancement;
+            return Self::Improvement;
         }
 
         if s.iter().any(|l| l == &"C-cleanup") {
-            return Self::Enhancement;
+            return Self::Improvement;
         }
 
         if s.iter().any(|l| l == &"C-feature-accepted") {
-            return Self::Enhancement;
+            return Self::Improvement;
         }
 
         if s.iter().any(|l| l == &"C-tracking-issue") {
-            return Self::Enhancement;
+            return Self::Improvement;
         }
 
         if s.iter().any(|l| l == &"C-discussion") {
