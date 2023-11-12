@@ -182,55 +182,34 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-
-
 impl PlotData {
     fn new() -> Self {
         Self {
-            origin_of_time: chrono::DateTime::parse_from_rfc3339("2010-06-21T00:00:00Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            week_data: vec![],
+            periods: HashMap::new(),
         }
     }
 
-    fn ensure_len(&mut self, len: usize) {
-        if self.week_data.len() <= len {
-            self.week_data.resize_with(len + 1, PeriodData::default);
-        }
-    }
-
-    fn increment(&mut self, week: usize, category: IssueCategory, counter: Counter) {
-        self.ensure_len(week);
-        let week_data = self.week_data.get_mut(week).unwrap();
-        week_data
-            .0
-            .entry(category)
+    fn increment(&mut self, period: Period, category: IssueCategory, counter: Counter) {
+        let period_data = self
+            .periods
+            .entry(period)
             .or_default()
-            .0
-            .entry(counter)
-            .and_modify(|c| *c += 1)
-            .or_insert(1);
+            .increment(category, counter);
     }
 
     fn analyze_issues(&mut self, issues: &[Option<OpenedAndClosedIssuesRepositoryIssuesNodes>]) {
         for issue in issues {
             let issue = issue.as_ref().unwrap();
-            let opened_week = ((issue.created_at - self.origin_of_time).num_days() / 30) as usize;
-            let closed_week = issue
-                .closed_at()
-                .map(|date| ((date - self.origin_of_time).num_days() / 30) as usize);
-
             let category = issue.category();
-            self.increment(opened_week, category, Counter::Opened);
 
-            if let Some(closed_week) = closed_week {
+            self.increment(issue.created_at.into(), category, Counter::Opened);
+
+            if let Some(closed_week) = issue.closed_at().map(|date| date.into()) {
                 self.increment(closed_week, category, Counter::Closed);
             }
         }
     }
 }
-
 
 impl IssueCategory {
     fn from_c_labels(s: &[&String]) -> Self {
@@ -281,7 +260,7 @@ impl IssueCategory {
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub struct Period {
     year: i32,
-    week_or_month: i32,
+    month: u32,
 }
 
 #[derive(Debug)]

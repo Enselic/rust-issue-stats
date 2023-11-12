@@ -1,5 +1,9 @@
 use std::collections::HashMap;
 
+use chrono::{Utc, Datelike};
+
+use super::*;
+
 pub type URI = String;
 pub type DateTime = chrono::DateTime<chrono::Utc>;
 
@@ -11,7 +15,6 @@ pub type DateTime = chrono::DateTime<chrono::Utc>;
     response_derives = "Clone, Debug, Serialize, Eq, PartialEq"
 )]
 pub struct OpenedAndClosedIssues;
-
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub enum Counter {
@@ -44,24 +47,27 @@ impl Default for PeriodData {
 }
 
 impl PeriodData {
-    fn opened(&self, category: IssueCategory) -> i64 {
-        *self
-            .0
-            .get(&category)
-            .unwrap()
-            .0
-            .get(&Counter::Opened)
-            .unwrap()
+    pub fn get(&self, category: IssueCategory, counter: Counter) -> i64 {
+        *self.0.get(&category).unwrap().0.get(&counter).unwrap()
     }
 
-    fn closed(&self, category: IssueCategory) -> i64 {
+    pub fn increment(&mut self, category: IssueCategory, counter: Counter) {
         *self
             .0
-            .get(&category)
+            .get_mut(&category)
             .unwrap()
             .0
-            .get(&Counter::Closed)
-            .unwrap()
+            .get_mut(&counter)
+            .unwrap() += 1;
+    }
+}
+
+impl From<chrono::DateTime<Utc>> for Period {
+    fn from(value: chrono::DateTime<Utc>) -> Self {
+        Period {
+            year: value.year(),
+            month: value.month(),
+        }
     }
 }
 
