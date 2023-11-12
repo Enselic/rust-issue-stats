@@ -12,35 +12,15 @@ query OpenedAndClosedIssues($repositoryOwner: String!, $repositoryName: String!,
       }
       nodes {
         number
-        createdAt
         url
         title
         state
+        createdAt
+        closedAt
         labels(first: 100) {
           totalCount
           nodes {
             name
-          }
-        }
-        timelineItems(first: 250, itemTypes: [REOPENED_EVENT, CLOSED_EVENT]) {
-          totalCount
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
-          nodes {
-            __typename
-            ... on ReopenedEvent {
-              createdAt
-            }
-            ... on ClosedEvent {
-              createdAt
-            }
-            ... on CrossReferencedEvent {
-              createdAt
-              referencedAt
-              willCloseTarget
-            }
           }
         }
       }

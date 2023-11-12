@@ -117,34 +117,12 @@ impl OpenedAndClosedIssuesRepositoryIssuesNodes {
         Category::from_c_labels(&category_labels)
     }
 
-    // TODO: Handle re-opened issues.
     fn closed_at(&self) -> Option<DateTime> {
-        let mut last_cross_referenced = None;
-        for item in self.timeline_items.nodes.as_ref().unwrap() {
-            if let Some(
-                OpenedAndClosedIssuesRepositoryIssuesNodesTimelineItemsNodes::ClosedEvent(event),
-            ) = &item
-            {
-                return Some(event.created_at);
-            }
-            if let Some(
-                OpenedAndClosedIssuesRepositoryIssuesNodesTimelineItemsNodes::CrossReferencedEvent(
-                    event,
-                ),
-            ) = &item
-            {
-                if event.will_close_target {
-                    last_cross_referenced = Some(event.created_at);
-                }
-            }
-        }
-        if self.state != IssueState::OPEN {
-            if last_cross_referenced.is_some() {
-                return last_cross_referenced;
-            } else {
-                eprintln!("{:?} event found for issue: {:#?}", self.state, self.url);
-                return Some(self.created_at);
-            }
+        if let Some(closed_at) = self.closed_at {
+            return Some(closed_at);
+        } else if self.state != IssueState::OPEN {
+            eprintln!("strange state {:?} for issue: {}", self.state, self.url);
+            return Some(self.created_at);
         }
         return None;
     }
@@ -204,6 +182,24 @@ async fn main() -> anyhow::Result<()> {
     let args = <Args as clap::Parser>::parse();
 
     let github = rust_issue_stats::GitHub::new();
+
+    let foo = github
+        .octocrab
+        .issues("rust-lang", "rust")
+        .list()
+        .filter("closed:2017-07-07")
+        .per_page(100)
+        .send()
+        .await
+        .unwrap();
+
+    for l in foo {
+        println!("{} {}", l.number, l.title);
+    }
+
+    if true {
+        return Ok(());
+    }
 
     let mut variables = Variables {
         repository_owner: "rust-lang".to_owned(),
