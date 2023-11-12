@@ -118,20 +118,17 @@ async fn main() -> anyhow::Result<()> {
 
     writeln!(
         week_stats_file,
-        "{}\t{}\t{}\t{}\t{}\t{}\t{}",
-        "Week",
-        "opened Bugs",
-        "opened Enhancements",
-        "opened Others",
-        "closed Bugs",
-        "closed Enhancements",
-        "closed Others",
+        "{}\t{}\t{}\t{}",
+        "Month",
+        "New bugs",
+        "New feature requests",
+        "new uncategorized",
     )
     .unwrap();
     writeln!(
         accumulated_stats_file,
-        "{}\t{}\t{}\t{}\t{}\t{}",
-        "Week", "Open bugs", "Open enhancements", "Open others", "Open total", "All"
+        "{}\t{}\t{}\t{}\t{}",
+        "Month", "Open bugs", "Open feature requests", "Open uncategorized", "Open total",
     )
     .unwrap();
 
@@ -144,10 +141,11 @@ async fn main() -> anyhow::Result<()> {
         // Per week
         writeln!(
             week_stats_file,
-            "{}\t{}\t{}",
+            "{}\t{}\t{}\t{}",
             period,
             plot_data.get(*period, IssueCategory::Bug, Counter::Opened),
-            plot_data.get(*period, IssueCategory::Bug, Counter::Closed),
+            plot_data.get(*period, IssueCategory::Improvement, Counter::Opened),
+            plot_data.get(*period, IssueCategory::Uncategorized, Counter::Opened),
         )
         .unwrap();
 
