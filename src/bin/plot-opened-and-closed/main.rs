@@ -123,13 +123,13 @@ async fn main() -> anyhow::Result<()> {
     writeln!(
         opened_by_month_file,
         "{}\t{}\t{}\t{}",
-        "Month", "New bugs", "New feature requests", "New uncategorized",
+        "Month", "New bugs", "New uncategorized", "New feature requests",
     )
     .unwrap();
     writeln!(
         closed_by_month_file,
         "{}\t{}\t{}\t{}",
-        "Month", "Closed bugs", "Closed feature requests", "Closed uncategorized",
+        "Month", "Closed bugs", "Closed uncategorized", "Closed feature requests",
     )
     .unwrap();
     writeln!(
