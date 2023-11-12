@@ -47,7 +47,7 @@ impl Default for Week {
         Self(HashMap::from([
             (Category::Bug, Counters::default()),
             (Category::Improvement, Counters::default()),
-            (Category::Other, Counters::default()),
+            (Category::Uncategorized, Counters::default()),
         ]))
     }
 }
@@ -88,12 +88,13 @@ impl Week {
 
 #[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
 enum Category {
-    /// C-bug and without category label
+    /// C-bug
     Bug,
-    /// C-enhancement, C-feature-request, C-optimization, C-cleanup, C-feature-accepted, C-tracking-issue
+    /// C-enhancement, C-feature-request, C-optimization, C-cleanup,
+    /// C-feature-accepted, C-tracking-issue, C-future-compatibility.
     Improvement,
-    /// C-discussion, C-future-compatibility
-    Other,
+    /// C-discussion and issues without a C-* label.
+    Uncategorized,
 }
 
 #[derive(Debug)]
@@ -293,15 +294,15 @@ async fn main() -> anyhow::Result<()> {
             idx,
             week.opened(Category::Bug),
             week.opened(Category::Improvement),
-            week.opened(Category::Other),
+            week.opened(Category::Uncategorized),
             week.closed(Category::Bug),
             week.closed(Category::Improvement),
-            week.closed(Category::Other),
+            week.closed(Category::Uncategorized),
         )
         .unwrap();
 
         // Accumulated
-        for category in [Category::Bug, Category::Improvement, Category::Other] {
+        for category in [Category::Bug, Category::Improvement, Category::Uncategorized] {
             let delta = week.opened(category) - week.closed(category);
             total
                 .entry(category)
@@ -310,14 +311,14 @@ async fn main() -> anyhow::Result<()> {
         }
         let sum = total.get(&Category::Bug).unwrap()
             + total.get(&Category::Improvement).unwrap()
-            + total.get(&Category::Other).unwrap();
+            + total.get(&Category::Uncategorized).unwrap();
         writeln!(
             accumulated_stats_file,
             "{}\t{}\t{}\t{}\t{}",
             idx,
             total.get(&Category::Bug).unwrap(),
             total.get(&Category::Improvement).unwrap(),
-            total.get(&Category::Other).unwrap(),
+            total.get(&Category::Uncategorized).unwrap(),
             sum,
         )
         .unwrap();
@@ -329,7 +330,7 @@ async fn main() -> anyhow::Result<()> {
 impl Category {
     fn from_c_labels(s: &[&String]) -> Self {
         if s.len() == 0 {
-            return Self::Bug;
+            return Self::Uncategorized;
         }
 
         if s.iter().any(|l| l == &"C-bug") {
@@ -360,12 +361,12 @@ impl Category {
             return Self::Improvement;
         }
 
-        if s.iter().any(|l| l == &"C-discussion") {
-            return Self::Other;
+        if s.iter().any(|l| l == &"C-future-compatibility") {
+            return Self::Improvement;
         }
 
-        if s.iter().any(|l| l == &"C-future-compatibility") {
-            return Self::Other;
+        if s.iter().any(|l| l == &"C-discussion") {
+            return Self::Uncategorized;
         }
 
         unreachable!("Unknown category labels: {:?}", s);
