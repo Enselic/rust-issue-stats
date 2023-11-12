@@ -12,7 +12,7 @@ type DateTime = chrono::DateTime<chrono::Utc>;
     schema_path = "schemas/github_schema.graphql",
     query_path = "src/bin/plot-opened-and-closed/OpenedAndClosedIssues.graphql",
     variables_derives = "Clone, Debug",
-    response_derives = "Clone, Debug, Serialize"
+    response_derives = "Clone, Debug, Serialize, Eq, PartialEq"
 )]
 pub struct OpenedAndClosedIssues;
 
@@ -53,7 +53,7 @@ impl Default for Week {
 }
 
 #[derive(Debug)]
-struct Counters(HashMap<Counter, u64>);
+struct Counters(HashMap<Counter, i64>);
 
 impl Default for Counters {
     fn default() -> Self {
@@ -65,7 +65,7 @@ impl Default for Counters {
 struct Week(HashMap<Category, Counters>);
 
 impl Week {
-    fn opened(&self, category: Category) -> u64 {
+    fn opened(&self, category: Category) -> i64 {
         *self
             .0
             .get(&category)
@@ -75,7 +75,7 @@ impl Week {
             .unwrap()
     }
 
-    fn closed(&self, category: Category) -> u64 {
+    fn closed(&self, category: Category) -> i64 {
         *self
             .0
             .get(&category)
@@ -127,6 +127,10 @@ impl OpenedAndClosedIssuesRepositoryIssuesNodes {
                 return Some(event.created_at);
             }
         }
+        if self.state != IssueState::OPEN {
+            eprintln!("{:?} event found for issue: {:#?}", self.state, self.url);
+            return Some(self.created_at);
+        }
         return None;
     }
 }
@@ -163,10 +167,10 @@ impl PlotData {
     fn analyze_issues(&mut self, issues: &[Option<OpenedAndClosedIssuesRepositoryIssuesNodes>]) {
         for issue in issues {
             let issue = issue.as_ref().unwrap();
-            let opened_week = ((issue.created_at - self.origin_of_time).num_days() / 30) as usize;
+            let opened_week = ((issue.created_at - self.origin_of_time).num_days() / 365) as usize;
             let closed_week = issue
                 .closed_at()
-                .map(|date| ((date - self.origin_of_time).num_days() / 30) as usize);
+                .map(|date| ((date - self.origin_of_time).num_days() / 365) as usize);
 
             let category = issue.category();
             self.increment(opened_week, category, Counter::Opened);
@@ -204,7 +208,7 @@ async fn main() -> anyhow::Result<()> {
 
         let mut persited_data_path = args.persisted_data_dir.clone();
         persited_data_path.push(format!("page-size-{}", args.page_size));
-        persited_data_path.push(format!("page-{}.json", page));
+        persited_data_path.push(format!("page-v2-{}.json", page));
         std::fs::create_dir_all(persited_data_path.parent().unwrap()).unwrap();
 
         let response: graphql_client::Response<ResponseData> = if persited_data_path.exists() {
@@ -280,7 +284,15 @@ async fn main() -> anyhow::Result<()> {
         "closed Others",
     )
     .unwrap();
-    let mut total: HashMap<Category, u64> = HashMap::new();
+    writeln!(
+        accumulated_stats_file,
+        "{}\t{}\t{}\t{}\t{}\t{}",
+        "Week", "Open bugs", "Open enhancements", "Open others", "Open total", "All"
+    )
+    .unwrap();
+
+    let mut total: HashMap<Category, i64> = HashMap::new();
+    let mut all = 0;
     for (idx, week) in data.week_data.iter().enumerate() {
         // Per week
         writeln!(
@@ -299,20 +311,24 @@ async fn main() -> anyhow::Result<()> {
         // Accumulated
         for category in [Category::Bug, Category::Enhancement, Category::Other] {
             let delta = week.opened(category) - week.closed(category);
+            all += week.closed(category);
             total
                 .entry(category)
                 .and_modify(|c| *c += delta)
                 .or_insert(delta);
         }
-        let sum = total.values().sum::<u64>();
+        let sum = total.get(&Category::Bug).unwrap()
+            + total.get(&Category::Enhancement).unwrap()
+            + total.get(&Category::Other).unwrap();
         writeln!(
             accumulated_stats_file,
-            "{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}",
             idx,
             total.get(&Category::Bug).unwrap(),
             total.get(&Category::Enhancement).unwrap(),
             total.get(&Category::Other).unwrap(),
             sum,
+            all,
         )
         .unwrap();
     }
