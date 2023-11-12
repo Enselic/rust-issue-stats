@@ -183,24 +183,6 @@ async fn main() -> anyhow::Result<()> {
 
     let github = rust_issue_stats::GitHub::new();
 
-    let foo = github
-        .octocrab
-        .issues("rust-lang", "rust")
-        .list()
-        .filter("closed:2017-07-07")
-        .per_page(100)
-        .send()
-        .await
-        .unwrap();
-
-    for l in foo {
-        println!("{} {}", l.number, l.title);
-    }
-
-    if true {
-        return Ok(());
-    }
-
     let mut variables = Variables {
         repository_owner: "rust-lang".to_owned(),
         repository_name: "rust".to_owned(),
