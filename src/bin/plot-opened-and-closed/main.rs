@@ -19,11 +19,14 @@ pub struct Args {
     #[arg(long, default_value = "target/rust-issues-stats/persisted-data-dir")]
     persisted_data_dir: PathBuf,
 
-    #[arg(long, default_value = "week.tsv")]
-    week_stats_file: PathBuf,
+    #[arg(long, default_value = "rust-issues-opened-by-month.tsv")]
+    opened_by_month_file: PathBuf,
 
-    #[arg(long, default_value = "accumulated.tsv")]
-    accumulated_stats_file: PathBuf,
+    #[arg(long, default_value = "rust-issues-closed-by-month.tsv")]
+    closed_by_month_file: PathBuf,
+
+    #[arg(long, default_value = "total-rust-issues-open.tsv")]
+    total_open_by_month: PathBuf,
 }
 
 #[tokio::main]
@@ -113,11 +116,12 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let mut week_stats_file = std::fs::File::create(args.week_stats_file).unwrap();
-    let mut accumulated_stats_file = std::fs::File::create(args.accumulated_stats_file).unwrap();
+    let mut opened_by_month_file = std::fs::File::create(args.opened_by_month_file).unwrap();
+    let mut closed_by_month_file = std::fs::File::create(args.closed_by_month_file).unwrap();
+    let mut accumulated_stats_file = std::fs::File::create(args.total_open_by_month).unwrap();
 
     writeln!(
-        week_stats_file,
+        opened_by_month_file,
         "{}\t{}\t{}\t{}",
         "Month", "New bugs", "New feature requests", "new uncategorized",
     )
@@ -135,14 +139,23 @@ async fn main() -> anyhow::Result<()> {
     let mut total: HashMap<IssueCategory, i64> = HashMap::new();
 
     for period in sorted_periods {
-        // Per week
         writeln!(
-            week_stats_file,
+            opened_by_month_file,
             "{}\t{}\t{}\t{}",
             period,
             plot_data.get(*period, IssueCategory::Bug, Counter::Opened),
             plot_data.get(*period, IssueCategory::Improvement, Counter::Opened),
             plot_data.get(*period, IssueCategory::Uncategorized, Counter::Opened),
+        )
+        .unwrap();
+
+        writeln!(
+            closed_by_month_file,
+            "{}\t{}\t{}\t{}",
+            period,
+            plot_data.get(*period, IssueCategory::Bug, Counter::Closed),
+            plot_data.get(*period, IssueCategory::Improvement, Counter::Closed),
+            plot_data.get(*period, IssueCategory::Uncategorized, Counter::Closed),
         )
         .unwrap();
 
@@ -194,11 +207,7 @@ impl PlotData {
             let issue = issue.as_ref().unwrap();
             let category = issue.category();
 
-            let p: Period = issue.created_at.into();
-            if p.year == 2015 && p.month == 1 && category == IssueCategory::Uncategorized {
-                eprintln!("skipping issue: {}", issue.url);
-            }
-            self.increment(p, category, Counter::Opened);
+            self.increment(issue.created_at.into(), category, Counter::Opened);
 
             if let Some(closed_week) = issue.closed_at().map(|date| date.into()) {
                 self.increment(closed_week, category, Counter::Closed);
@@ -286,11 +295,17 @@ impl OpenedAndClosedIssuesRepositoryIssuesNodes {
 
     fn closed_at(&self) -> Option<DateTime> {
         if let Some(closed_at) = self.closed_at {
-            return Some(closed_at);
-        } else if self.state != IssueState::OPEN {
-            eprintln!("strange state {:?} for issue: {}", self.state, self.url);
-            return Some(self.created_at);
+            Some(closed_at)
+        } else if self.state == IssueState::CLOSED {
+            eprintln!(
+                "WARNING: issue {} has no closed_at but state is CLOSED!",
+                self.url
+            );
+            Some(self.created_at)
+        } else if let IssueState::Other(_) = self.state {
+            unreachable!("Unknown issue state: {:?}", self.state);
+        } else {
+            None
         }
-        return None;
     }
 }
