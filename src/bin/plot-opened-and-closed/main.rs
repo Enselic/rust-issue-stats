@@ -119,10 +119,7 @@ async fn main() -> anyhow::Result<()> {
     writeln!(
         week_stats_file,
         "{}\t{}\t{}\t{}",
-        "Month",
-        "New bugs",
-        "New feature requests",
-        "new uncategorized",
+        "Month", "New bugs", "New feature requests", "new uncategorized",
     )
     .unwrap();
     writeln!(
@@ -197,7 +194,11 @@ impl PlotData {
             let issue = issue.as_ref().unwrap();
             let category = issue.category();
 
-            self.increment(issue.created_at.into(), category, Counter::Opened);
+            let p: Period = issue.created_at.into();
+            if p.year == 2015 && p.month == 1 && category == IssueCategory::Uncategorized {
+                eprintln!("skipping issue: {}", issue.url);
+            }
+            self.increment(p, category, Counter::Opened);
 
             if let Some(closed_week) = issue.closed_at().map(|date| date.into()) {
                 self.increment(closed_week, category, Counter::Closed);
