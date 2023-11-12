@@ -4,17 +4,8 @@ use std::{collections::HashMap, hash::Hash, path::PathBuf};
 
 use tracing::*;
 
-type URI = String;
-type DateTime = chrono::DateTime<chrono::Utc>;
-
-#[derive(graphql_client::GraphQLQuery)]
-#[graphql(
-    schema_path = "schemas/github_schema.graphql",
-    query_path = "src/bin/plot-opened-and-closed/OpenedAndClosedIssues.graphql",
-    variables_derives = "Clone, Debug",
-    response_derives = "Clone, Debug, Serialize, Eq, PartialEq"
-)]
-pub struct OpenedAndClosedIssues;
+mod models;
+use models::*;
 
 use opened_and_closed_issues::*;
 
@@ -34,146 +25,6 @@ pub struct Args {
 
     #[arg(long, default_value = "accumulated.tsv")]
     accumulated_stats_file: PathBuf,
-}
-
-#[derive(Debug, Hash, PartialEq, Eq)]
-enum Counter {
-    Opened,
-    Closed,
-}
-
-impl Default for Week {
-    fn default() -> Self {
-        Self(HashMap::from([
-            (Category::Bug, Counters::default()),
-            (Category::Improvement, Counters::default()),
-            (Category::Uncategorized, Counters::default()),
-        ]))
-    }
-}
-
-#[derive(Debug)]
-struct Counters(HashMap<Counter, i64>);
-
-impl Default for Counters {
-    fn default() -> Self {
-        Self(HashMap::from([(Counter::Opened, 0), (Counter::Closed, 0)]))
-    }
-}
-
-#[derive(Debug)]
-struct Week(HashMap<Category, Counters>);
-
-impl Week {
-    fn opened(&self, category: Category) -> i64 {
-        *self
-            .0
-            .get(&category)
-            .unwrap()
-            .0
-            .get(&Counter::Opened)
-            .unwrap()
-    }
-
-    fn closed(&self, category: Category) -> i64 {
-        *self
-            .0
-            .get(&category)
-            .unwrap()
-            .0
-            .get(&Counter::Closed)
-            .unwrap()
-    }
-}
-
-#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
-enum Category {
-    /// C-bug
-    Bug,
-    /// C-enhancement, C-feature-request, C-optimization, C-cleanup,
-    /// C-feature-accepted, C-tracking-issue, C-future-compatibility.
-    Improvement,
-    /// C-discussion and issues without a C-* label.
-    Uncategorized,
-}
-
-#[derive(Debug)]
-struct PlotData {
-    origin_of_time: DateTime,
-    week_data: Vec<Week>,
-}
-
-impl OpenedAndClosedIssuesRepositoryIssuesNodes {
-    fn category(&self) -> Category {
-        let labels = self.labels.as_ref().unwrap();
-        let category_labels: Vec<_> = labels
-            .nodes
-            .as_ref()
-            .unwrap()
-            .iter()
-            .flatten()
-            .filter(|label| label.name.starts_with("C-"))
-            .map(|label| &label.name)
-            .collect();
-        Category::from_c_labels(&category_labels)
-    }
-
-    fn closed_at(&self) -> Option<DateTime> {
-        if let Some(closed_at) = self.closed_at {
-            return Some(closed_at);
-        } else if self.state != IssueState::OPEN {
-            eprintln!("strange state {:?} for issue: {}", self.state, self.url);
-            return Some(self.created_at);
-        }
-        return None;
-    }
-}
-
-impl PlotData {
-    fn new() -> Self {
-        Self {
-            origin_of_time: chrono::DateTime::parse_from_rfc3339("2010-06-21T00:00:00Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            week_data: vec![],
-        }
-    }
-
-    fn ensure_len(&mut self, len: usize) {
-        if self.week_data.len() <= len {
-            self.week_data.resize_with(len + 1, Week::default);
-        }
-    }
-
-    fn increment(&mut self, week: usize, category: Category, counter: Counter) {
-        self.ensure_len(week);
-        let week_data = self.week_data.get_mut(week).unwrap();
-        week_data
-            .0
-            .entry(category)
-            .or_default()
-            .0
-            .entry(counter)
-            .and_modify(|c| *c += 1)
-            .or_insert(1);
-    }
-
-    fn analyze_issues(&mut self, issues: &[Option<OpenedAndClosedIssuesRepositoryIssuesNodes>]) {
-        for issue in issues {
-            let issue = issue.as_ref().unwrap();
-            let opened_week = ((issue.created_at - self.origin_of_time).num_days() / 30) as usize;
-            let closed_week = issue
-                .closed_at()
-                .map(|date| ((date - self.origin_of_time).num_days() / 30) as usize);
-
-            let category = issue.category();
-            self.increment(opened_week, category, Counter::Opened);
-
-            if let Some(closed_week) = closed_week {
-                self.increment(closed_week, category, Counter::Closed);
-            }
-        }
-    }
 }
 
 #[tokio::main]
@@ -285,40 +136,44 @@ async fn main() -> anyhow::Result<()> {
     )
     .unwrap();
 
-    let mut total: HashMap<Category, i64> = HashMap::new();
+    let mut total: HashMap<IssueCategory, i64> = HashMap::new();
     for (idx, week) in data.week_data.iter().enumerate() {
         // Per week
         writeln!(
             week_stats_file,
             "{}\t{}\t{}\t{}\t{}\t{}\t{}",
             idx,
-            week.opened(Category::Bug),
-            week.opened(Category::Improvement),
-            week.opened(Category::Uncategorized),
-            week.closed(Category::Bug),
-            week.closed(Category::Improvement),
-            week.closed(Category::Uncategorized),
+            week.opened(IssueCategory::Bug),
+            week.opened(IssueCategory::Improvement),
+            week.opened(IssueCategory::Uncategorized),
+            week.closed(IssueCategory::Bug),
+            week.closed(IssueCategory::Improvement),
+            week.closed(IssueCategory::Uncategorized),
         )
         .unwrap();
 
         // Accumulated
-        for category in [Category::Bug, Category::Improvement, Category::Uncategorized] {
+        for category in [
+            IssueCategory::Bug,
+            IssueCategory::Improvement,
+            IssueCategory::Uncategorized,
+        ] {
             let delta = week.opened(category) - week.closed(category);
             total
                 .entry(category)
                 .and_modify(|c| *c += delta)
                 .or_insert(delta);
         }
-        let sum = total.get(&Category::Bug).unwrap()
-            + total.get(&Category::Improvement).unwrap()
-            + total.get(&Category::Uncategorized).unwrap();
+        let sum = total.get(&IssueCategory::Bug).unwrap()
+            + total.get(&IssueCategory::Improvement).unwrap()
+            + total.get(&IssueCategory::Uncategorized).unwrap();
         writeln!(
             accumulated_stats_file,
             "{}\t{}\t{}\t{}\t{}",
             idx,
-            total.get(&Category::Bug).unwrap(),
-            total.get(&Category::Improvement).unwrap(),
-            total.get(&Category::Uncategorized).unwrap(),
+            total.get(&IssueCategory::Bug).unwrap(),
+            total.get(&IssueCategory::Improvement).unwrap(),
+            total.get(&IssueCategory::Uncategorized).unwrap(),
             sum,
         )
         .unwrap();
@@ -327,7 +182,57 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-impl Category {
+
+
+impl PlotData {
+    fn new() -> Self {
+        Self {
+            origin_of_time: chrono::DateTime::parse_from_rfc3339("2010-06-21T00:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            week_data: vec![],
+        }
+    }
+
+    fn ensure_len(&mut self, len: usize) {
+        if self.week_data.len() <= len {
+            self.week_data.resize_with(len + 1, Period::default);
+        }
+    }
+
+    fn increment(&mut self, week: usize, category: IssueCategory, counter: Counter) {
+        self.ensure_len(week);
+        let week_data = self.week_data.get_mut(week).unwrap();
+        week_data
+            .0
+            .entry(category)
+            .or_default()
+            .0
+            .entry(counter)
+            .and_modify(|c| *c += 1)
+            .or_insert(1);
+    }
+
+    fn analyze_issues(&mut self, issues: &[Option<OpenedAndClosedIssuesRepositoryIssuesNodes>]) {
+        for issue in issues {
+            let issue = issue.as_ref().unwrap();
+            let opened_week = ((issue.created_at - self.origin_of_time).num_days() / 30) as usize;
+            let closed_week = issue
+                .closed_at()
+                .map(|date| ((date - self.origin_of_time).num_days() / 30) as usize);
+
+            let category = issue.category();
+            self.increment(opened_week, category, Counter::Opened);
+
+            if let Some(closed_week) = closed_week {
+                self.increment(closed_week, category, Counter::Closed);
+            }
+        }
+    }
+}
+
+
+impl IssueCategory {
     fn from_c_labels(s: &[&String]) -> Self {
         if s.len() == 0 {
             return Self::Uncategorized;
@@ -370,5 +275,37 @@ impl Category {
         }
 
         unreachable!("Unknown category labels: {:?}", s);
+    }
+}
+
+#[derive(Debug)]
+struct PlotData {
+    origin_of_time: DateTime,
+    week_data: Vec<Period>,
+}
+
+impl OpenedAndClosedIssuesRepositoryIssuesNodes {
+    fn category(&self) -> IssueCategory {
+        let labels = self.labels.as_ref().unwrap();
+        let category_labels: Vec<_> = labels
+            .nodes
+            .as_ref()
+            .unwrap()
+            .iter()
+            .flatten()
+            .filter(|label| label.name.starts_with("C-"))
+            .map(|label| &label.name)
+            .collect();
+        IssueCategory::from_c_labels(&category_labels)
+    }
+
+    fn closed_at(&self) -> Option<DateTime> {
+        if let Some(closed_at) = self.closed_at {
+            return Some(closed_at);
+        } else if self.state != IssueState::OPEN {
+            eprintln!("strange state {:?} for issue: {}", self.state, self.url);
+            return Some(self.created_at);
+        }
+        return None;
     }
 }
